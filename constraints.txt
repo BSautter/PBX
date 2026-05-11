@@ -30,7 +30,7 @@ cryptography==46.0.5
 
 # SIP/RTP Support
 aiortc==1.14.0
-twisted==25.5.0
+twisted==26.4.0
 
 # Audio Processing
 pydub==0.25.1
