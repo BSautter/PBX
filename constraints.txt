@@ -26,11 +26,11 @@
 # Core Dependencies
 # ============================================================================
 PyYAML==6.0.3
-cryptography==46.0.5
+cryptography==48.0.0
 
 # SIP/RTP Support
 aiortc==1.14.0
-twisted==25.5.0
+twisted==26.4.0
 
 # Audio Processing
 pydub==0.25.1
@@ -68,7 +68,7 @@ soundfile==0.13.1
 
 # Video Codec Support
 imageio-ffmpeg==0.6.0
-av==16.1.0
+av==17.0.1
 
 # Data Validation
 pydantic==2.12.5
