@@ -97,8 +97,8 @@ pytest-mock==3.15.1
 pytest-xdist==3.8.0
 
 # Code Quality
-ruff==0.15.4
-mypy==2.0.0
+ruff==0.15.12
+mypy==1.19.1
 
 # Pre-commit Hooks
 pre-commit==4.6.0
