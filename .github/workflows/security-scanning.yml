@@ -112,9 +112,21 @@ jobs:
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
+        with:
+          fail-on-warning: false  # Don't fail on warnings, only secrets
+          log-level: info          # More readable than debug
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Upload Gitleaks results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gitleaks-results
+          path: results.sarif
+          if-no-files-found: ignore
+          retention-days: 30
 
   docker-scan:
     name: Docker Image Scan
