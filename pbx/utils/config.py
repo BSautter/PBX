@@ -1,8 +1,11 @@
 """Configuration management for PBX system."""
 
+from __future__ import annotations
+
 import logging
 import re
 from pathlib import Path
+from typing import Any, overload
 
 import yaml
 
@@ -65,7 +68,31 @@ class Config:
         else:
             raise FileNotFoundError(f"Configuration file not found: {self.config_file}")
 
-    def get(self, key: str, default: object = None) -> object:
+    @overload
+    def get(self, key: str) -> Any: ...
+
+    @overload
+    def get(self, key: str, default: str) -> str: ...
+
+    @overload
+    def get(self, key: str, default: int) -> int: ...
+
+    @overload
+    def get(self, key: str, default: float) -> float: ...
+
+    @overload
+    def get(self, key: str, default: bool) -> bool: ...
+
+    @overload
+    def get(self, key: str, default: list[Any]) -> list[Any]: ...
+
+    @overload
+    def get(self, key: str, default: dict[str, Any]) -> dict[str, Any]: ...
+
+    @overload
+    def get(self, key: str, default: Any) -> Any: ...
+
+    def get(self, key: str, default: Any = None) -> Any:
         """
         Get configuration value
 

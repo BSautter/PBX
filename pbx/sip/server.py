@@ -1850,9 +1850,8 @@ class SIPServer:
         source_host, source_port = addr
 
         # RFC 3261 Section 18.2.2: Add received= if Via host differs from source IP
-        if via_host != source_host:
-            if ";received=" not in via:
-                via = f"{via};received={source_host}"
+        if via_host != source_host and ";received=" not in via:
+            via = f"{via};received={source_host}"
 
         # RFC 3581: Add rport= with actual source port if rport was requested
         if ";rport" in via and f";rport={source_port}" not in via:
