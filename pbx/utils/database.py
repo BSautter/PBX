@@ -3,6 +3,7 @@ Database backend for PBX features
 Provides PostgreSQL storage for VIP callers, CDR, and other data
 """
 
+import contextlib
 import json
 import traceback
 from datetime import UTC, datetime
@@ -109,20 +110,16 @@ class DatabaseBackend:
             )
             # Clean up partially-initialized connection
             if self.connection:
-                try:
+                with contextlib.suppress(Exception):
                     self.connection.close()
-                except Exception:
-                    pass
                 self.connection = None
             return False
 
     def disconnect(self) -> None:
         """Disconnect from database"""
         if self.connection:
-            try:
+            with contextlib.suppress(Exception):
                 self.connection.close()
-            except Exception:
-                pass
             self.connection = None
             self.enabled = False
             self.logger.info("Database disconnected")
@@ -171,10 +168,8 @@ class DatabaseBackend:
             return True
         except Exception:
             self.logger.warning("Database connection check failed, attempting reconnection...")
-            try:
+            with contextlib.suppress(Exception):
                 self.connection.close()
-            except Exception:
-                pass
             self.connection = None
             self.enabled = False
             return self.connect()
@@ -194,9 +189,8 @@ class DatabaseBackend:
         Returns:
             bool: True if successful
         """
-        if not self.enabled or not self.connection:
-            if not self._check_connection():
-                return False
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return False
 
         try:
             cursor = self.connection.cursor()
@@ -266,9 +260,8 @@ class DatabaseBackend:
         Returns:
             bool: True if successful
         """
-        if not self.enabled or not self.connection:
-            if not self._check_connection():
-                return False
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return False
         return self._execute_with_context(query, "query execution", params, critical=True)
 
     def execute_script(self, script: str) -> bool:
@@ -282,9 +275,8 @@ class DatabaseBackend:
         Returns:
             bool: True if successful
         """
-        if not self.enabled or not self.connection:
-            if not self._check_connection():
-                return False
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return False
 
         try:
             # Split and execute individual statements
@@ -331,9 +323,8 @@ class DatabaseBackend:
         Returns:
             dict: Row data or None
         """
-        if not self.enabled or not self.connection:
-            if not self._check_connection():
-                return None
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return None
 
         try:
             cursor = self.connection.cursor(cursor_factory=RealDictCursor)
@@ -369,9 +360,8 @@ class DatabaseBackend:
         Returns:
             list: list of row dictionaries
         """
-        if not self.enabled or not self.connection:
-            if not self._check_connection():
-                return []
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return []
 
         try:
             cursor = self.connection.cursor(cursor_factory=RealDictCursor)
