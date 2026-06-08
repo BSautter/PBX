@@ -27,6 +27,7 @@ class WebhookEvent:
     CALL_HOLD = "call.hold"
     CALL_RESUME = "call.resume"
     CALL_TRANSFER = "call.transfer"
+    CALL_TRANSFERRED = "call.transferred"
     CALL_PARKED = "call.parked"
     CALL_RETRIEVED = "call.retrieved"
 

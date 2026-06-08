@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from pbx.sip.message import SIPMessage, SIPMessageBuilder
@@ -97,6 +98,11 @@ class SIPServer:
         self.pending_provisional_responses: dict[tuple[str, int], dict] = {}
         self._rseq_counter: int = 1
 
+        # Bounded thread pool to prevent thread exhaustion under load
+        self._thread_pool = ThreadPoolExecutor(
+            max_workers=200, thread_name_prefix="sip-handler"
+        )
+
     def start(self) -> bool:
         """
         Start SIP server.
@@ -127,6 +133,7 @@ class SIPServer:
     def stop(self) -> None:
         """Stop SIP server."""
         self.running = False
+        self._thread_pool.shutdown(wait=False)
         if self.socket:
             self.socket.close()
         self.logger.info("SIP server stopped")
@@ -145,12 +152,8 @@ class SIPServer:
                     self.logger.warning(f"Malformed UTF-8 from {addr}, using lossy decode")
                     message_text = data.decode("utf-8", errors="replace")
 
-                # Handle message in separate thread
-                handler_thread = threading.Thread(
-                    target=self._handle_message, args=(message_text, addr)
-                )
-                handler_thread.daemon = True
-                handler_thread.start()
+                # Submit to bounded thread pool instead of spawning unbounded threads
+                self._thread_pool.submit(self._handle_message, message_text, addr)
 
             except TimeoutError:
                 # Timeout allows us to check running flag periodically
@@ -1847,9 +1850,8 @@ class SIPServer:
         source_host, source_port = addr
 
         # RFC 3261 Section 18.2.2: Add received= if Via host differs from source IP
-        if via_host != source_host:
-            if ";received=" not in via:
-                via = f"{via};received={source_host}"
+        if via_host != source_host and ";received=" not in via:
+            via = f"{via};received={source_host}"
 
         # RFC 3581: Add rport= with actual source port if rport was requested
         if ";rport" in via and f";rport={source_port}" not in via:

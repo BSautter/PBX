@@ -34,12 +34,14 @@ class TestCallRouterInternalRouting:
         caller_ext.name = "Alice"
         caller_ext.registered = True
         caller_ext.address = ("192.168.1.10", 5060)
+        caller_ext.is_expired.return_value = False
 
         callee_ext = MagicMock()
         callee_ext.number = "1002"
         callee_ext.name = "Bob"
         callee_ext.registered = True
         callee_ext.address = ("192.168.1.11", 5060)
+        callee_ext.is_expired.return_value = False
 
         def get_ext(number: str) -> MagicMock | None:
             return {"1001": caller_ext, "1002": callee_ext}.get(number)
@@ -71,6 +73,8 @@ class TestCallRouterInternalRouting:
         pbx._get_codecs_for_phone_model.return_value = None
         pbx._get_dtmf_payload_type.return_value = 101
         pbx._get_ilbc_mode.return_value = 30
+        pbx._get_compatible_codecs.return_value = ["0", "8", "101"]
+        pbx._should_skip_static_rtpmap.return_value = False
 
         return pbx
 

@@ -4,7 +4,8 @@ Provides /api/v1/* routes that forward to the existing /api/* handlers,
 allowing gradual migration to versioned API endpoints.
 """
 
-from flask import Blueprint, Response, redirect, request
+from flask import Blueprint, redirect, request
+from werkzeug.wrappers import Response
 
 compat_bp = Blueprint("compat", __name__)
 

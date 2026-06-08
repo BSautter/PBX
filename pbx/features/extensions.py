@@ -231,6 +231,13 @@ class ExtensionRegistry:
             return True
         return False
 
+    def get_address(self, number: str) -> tuple | None:
+        """Get the SIP address of a registered extension."""
+        ext = self.get(number)
+        if ext and ext.registered:
+            return ext.address
+        return None
+
     def is_registered(self, number: str) -> bool:
         """
         Check if extension is registered

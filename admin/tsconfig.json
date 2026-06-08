@@ -25,7 +25,8 @@
             "@ui/*": ["js/ui/*"],
             "@utils/*": ["js/utils/*"],
             "@pages/*": ["js/pages/*"]
-        }
+        },
+        "ignoreDeprecations": "6.0"
     },
     "include": ["js/**/*.ts", "js/**/*.js"],
     "exclude": ["node_modules", "dist"]

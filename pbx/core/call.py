@@ -2,6 +2,8 @@
 Call management and session handling
 """
 
+import threading
+from collections import deque
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
@@ -117,7 +119,8 @@ class CallManager:
     def __init__(self) -> None:
         """Initialize call manager"""
         self.active_calls: dict[str, Call] = {}
-        self.call_history: list[Call] = []
+        self.call_history: deque[Call] = deque(maxlen=self.MAX_HISTORY_SIZE)
+        self._lock = threading.Lock()
 
     def create_call(self, call_id: str, from_extension: str, to_extension: str) -> Call:
         """
@@ -132,7 +135,8 @@ class CallManager:
             Call object
         """
         call = Call(call_id, from_extension, to_extension)
-        self.active_calls[call_id] = call
+        with self._lock:
+            self.active_calls[call_id] = call
         return call
 
     def get_call(self, call_id: str) -> Call | None:
@@ -157,15 +161,13 @@ class CallManager:
         Returns:
             True if call was ended
         """
-        call = self.active_calls.get(call_id)
-        if call:
-            call.end()
-            self.call_history.append(call)
-            # Prevent unbounded memory growth in long-running systems
-            if len(self.call_history) > self.MAX_HISTORY_SIZE:
-                self.call_history = self.call_history[-self.MAX_HISTORY_SIZE :]
-            del self.active_calls[call_id]
-            return True
+        with self._lock:
+            call = self.active_calls.get(call_id)
+            if call:
+                call.end()
+                self.call_history.append(call)
+                del self.active_calls[call_id]
+                return True
         return False
 
     def get_active_calls(self) -> list[Call]:
