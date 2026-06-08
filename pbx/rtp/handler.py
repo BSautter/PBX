@@ -178,9 +178,7 @@ class RTPHandler:
             # For G.711 (PT 0/8): 1 byte = 1 sample.
             # For 16-bit linear PCM: 1 sample = 2 bytes.
             # For G.722 (PT 9): 1 byte = 1 sample at 16kHz.
-            if payload_type in (0, 8):
-                samples = len(payload)
-            elif payload_type == 9:
+            if payload_type in (0, 8, 9):
                 samples = len(payload)
             else:
                 # Default: assume 2 bytes per sample (16-bit PCM)
@@ -408,183 +406,120 @@ class RTPRelayHandler:
 
         self.logger.info(f"RTP relay handler stopped on port {self.local_port}")
 
+    def _classify_packet(self, addr: AddrTuple, data: bytes) -> str | None:
+        """
+        Classify a packet's source as 'a', 'b', or None (unknown/rejected).
+
+        Acquires the lock only when learning new endpoints. Once both endpoints
+        are learned, classification is lock-free for the fast path.
+        """
+        la = self.learned_a
+        lb = self.learned_b
+
+        # Fast path (lock-free): both endpoints already learned
+        if la and lb:
+            if addr[0] == la[0] and addr[1] == la[1]:
+                return "a"
+            if addr[0] == lb[0] and addr[1] == lb[1]:
+                return "b"
+            return None
+
+        # Slow path: need lock for learning
+        with self.lock:
+            la = self.learned_a
+            lb = self.learned_b
+
+            if la and addr[0] == la[0] and addr[1] == la[1]:
+                return "a"
+            if lb and addr[0] == lb[0] and addr[1] == lb[1]:
+                return "b"
+
+            if self.endpoint_a and addr[0] == self.endpoint_a[0] and addr[1] == self.endpoint_a[1]:
+                if not la:
+                    self.learned_a = addr
+                    self.logger.info(f"Learned endpoint A: {addr} (matched SDP)")
+                return "a"
+
+            if self.endpoint_b and addr[0] == self.endpoint_b[0] and addr[1] == self.endpoint_b[1]:
+                if not lb:
+                    self.learned_b = addr
+                    self.logger.info(f"Learned endpoint B: {addr} (matched SDP)")
+                return "b"
+
+            elapsed = time.time() - self._start_time if self._start_time else 0
+            if elapsed > self._learning_timeout:
+                self.logger.warning(f"RTP learning timeout expired, rejecting packet from {addr}")
+                return None
+
+            if len(data) < 12:
+                self.logger.debug(f"Rejecting too-short packet from {addr}")
+                return None
+
+            if not la:
+                self.learned_a = addr
+                expected_str = (
+                    f" (expected {self.endpoint_a})"
+                    if self.endpoint_a
+                    else " (no SDP endpoint set)"
+                )
+                self.logger.info(f"Learned endpoint A via symmetric RTP: {addr}{expected_str}")
+                return "a"
+
+            if not lb and addr != la:
+                self.learned_b = addr
+                expected_str = (
+                    f" (expected {self.endpoint_b})"
+                    if self.endpoint_b
+                    else " (no SDP endpoint set)"
+                )
+                self.logger.info(f"Learned endpoint B via symmetric RTP: {addr}{expected_str}")
+                return "b"
+
+            self.logger.debug(f"RTP packet from unknown source: {addr} (learned A:{la}, B:{lb})")
+            return None
+
     def _relay_loop(self) -> None:
         """Relay RTP packets between endpoints with symmetric RTP support."""
         while self.running:
             try:
                 data, addr = self.socket.recvfrom(2048)
 
-                # Symmetric RTP: Learn actual source addresses from first packets
-                # This handles NAT traversal where actual source differs from
-                # SDP
-                with self.lock:
-                    # Allow learning even if only one endpoint is set (fixes early packet dropping)
-                    # This is important because INVITE sets endpoint_a but endpoint_b is only
-                    # set after 200 OK. RTP packets may arrive during this
-                    # window.
+                side = self._classify_packet(addr, data)
+                if side is None:
+                    continue
 
-                    # Determine if this packet is from A, B, or unknown
-                    is_from_a = False
-                    is_from_b = False
+                # Snapshot target addresses (lock-free reads after learning)
+                target: AddrTuple | None = None
+                qos_metrics: QoSMetrics | None = None
+                direction_label: str = ""
 
-                    # Check learned addresses first (most reliable)
-                    if self.learned_a and (
-                        addr[0] == self.learned_a[0] and addr[1] == self.learned_a[1]
-                    ):
-                        is_from_a = True
-                    elif self.learned_b and (
-                        addr[0] == self.learned_b[0] and addr[1] == self.learned_b[1]
-                    ):
-                        is_from_b = True
-                    # Check if packet matches expected SDP address for A
-                    elif self.endpoint_a and (
-                        addr[0] == self.endpoint_a[0] and addr[1] == self.endpoint_a[1]
-                    ):
-                        if not self.learned_a:
-                            self.learned_a = addr
-                            self.logger.info(f"Learned endpoint A: {addr} (matched SDP)")
-                        is_from_a = True
-                    # Check if packet matches expected SDP address for B
-                    elif self.endpoint_b and (
-                        addr[0] == self.endpoint_b[0] and addr[1] == self.endpoint_b[1]
-                    ):
-                        if not self.learned_b:
-                            self.learned_b = addr
-                            self.logger.info(f"Learned endpoint B: {addr} (matched SDP)")
-                        is_from_b = True
-                    # Symmetric RTP: Learn from first packet (NAT traversal)
-                    # Security: Only learn within timeout window and validate
-                    # packet format
-                    elif not self.learned_a:
-                        # Check if we're still in the learning window
-                        elapsed = time.time() - self._start_time if self._start_time else 0
-                        if elapsed > self._learning_timeout:
-                            self.logger.warning(
-                                f"RTP learning timeout expired, rejecting packet from {addr}"
-                            )
-                            continue
+                if side == "a":
+                    target = self.learned_b or self.endpoint_b
+                    qos_metrics = self.qos_metrics_a_to_b
+                    direction_label = "A->B"
+                else:
+                    target = self.learned_a or self.endpoint_a
+                    qos_metrics = self.qos_metrics_b_to_a
+                    direction_label = "B->A"
 
-                        # Validate this looks like a real RTP packet (at least
-                        # 12 bytes header)
-                        if len(data) < 12:
-                            self.logger.debug(f"Rejecting too-short packet from {addr}")
-                            continue
+                if not target:
+                    self.logger.debug(
+                        f"Packet from {side.upper()} dropped — waiting for "
+                        f"{'B' if side == 'a' else 'A'} endpoint"
+                    )
+                    continue
 
-                        # First packet from unknown source - assume it's
-                        # endpoint A
-                        self.learned_a = addr
-                        is_from_a = True
-                        expected_str = (
-                            f" (expected {self.endpoint_a})"
-                            if self.endpoint_a
-                            else " (no SDP endpoint set)"
-                        )
-                        self.logger.info(
-                            f"Learned endpoint A via symmetric RTP: {addr}{expected_str}"
-                        )
-                    elif not self.learned_b and addr != self.learned_a:
-                        # Check if we're still in the learning window
-                        elapsed = time.time() - self._start_time if self._start_time else 0
-                        if elapsed > self._learning_timeout:
-                            self.logger.warning(
-                                f"RTP learning timeout expired, rejecting packet from {addr}"
-                            )
-                            continue
+                self.socket.sendto(data, target)
 
-                        # Validate this looks like a real RTP packet
-                        if len(data) < 12:
-                            self.logger.debug(f"Rejecting too-short packet from {addr}")
-                            continue
+                if qos_metrics and len(data) >= 12:
+                    try:
+                        header = struct.unpack("!BBHII", data[:12])
+                        qos_metrics.update_packet_received(header[2], header[3], len(data) - 12)
+                        qos_metrics.update_packet_sent()
+                    except struct.error:
+                        pass
 
-                        # Second packet from different source - assume it's
-                        # endpoint B
-                        self.learned_b = addr
-                        is_from_b = True
-                        expected_str = (
-                            f" (expected {self.endpoint_b})"
-                            if self.endpoint_b
-                            else " (no SDP endpoint set)"
-                        )
-                        self.logger.info(
-                            f"Learned endpoint B via symmetric RTP: {addr}{expected_str}"
-                        )
-                    else:
-                        # Packet from unknown third source or duplicate
-                        self.logger.debug(
-                            f"RTP packet from unknown source: {addr} (learned A:{self.learned_a}, B:{self.learned_b})"
-                        )
-                        continue
-
-                    # Forward packet to the other endpoint and update QoS metrics
-                    # Parse RTP header once for QoS tracking (only if we have
-                    # valid data)
-                    seq_num: int | None = None
-                    timestamp: int | None = None
-                    payload_size: int | None = None
-                    if len(data) >= 12:
-                        try:
-                            header = struct.unpack("!BBHII", data[:12])
-                            seq_num = header[2]
-                            timestamp = header[3]
-                            payload_size = len(data) - 12
-                        except (KeyError, TypeError, ValueError, struct.error) as parse_error:
-                            self.logger.debug(f"Error parsing RTP header for QoS: {parse_error}")
-
-                    if is_from_a and self.learned_b:
-                        # Packet from A, send to B (using learned address)
-                        self.socket.sendto(data, self.learned_b)
-                        # Track QoS for A->B direction
-                        if self.qos_metrics_a_to_b and seq_num is not None:
-                            self.qos_metrics_a_to_b.update_packet_received(
-                                seq_num, timestamp, payload_size
-                            )
-                            self.qos_metrics_a_to_b.update_packet_sent()
-                        self.logger.debug(f"Relayed {len(data)} bytes: A->B")
-                    elif is_from_b and self.learned_a:
-                        # Packet from B, send to A (using learned address)
-                        self.socket.sendto(data, self.learned_a)
-                        # Track QoS for B->A direction
-                        if self.qos_metrics_b_to_a and seq_num is not None:
-                            self.qos_metrics_b_to_a.update_packet_received(
-                                seq_num, timestamp, payload_size
-                            )
-                            self.qos_metrics_b_to_a.update_packet_sent()
-                        self.logger.debug(f"Relayed {len(data)} bytes: B->A")
-                    elif is_from_a and self.endpoint_b:
-                        # From A but B not learned yet - try sending to
-                        # expected B (if known)
-                        self.socket.sendto(data, self.endpoint_b)
-                        # Track QoS for A->B direction
-                        if self.qos_metrics_a_to_b and seq_num is not None:
-                            self.qos_metrics_a_to_b.update_packet_received(
-                                seq_num, timestamp, payload_size
-                            )
-                            self.qos_metrics_a_to_b.update_packet_sent()
-                        self.logger.debug(
-                            f"Relayed {len(data)} bytes: A->B (B not learned, using SDP)"
-                        )
-                    elif is_from_b and self.endpoint_a:
-                        # From B but A not learned yet - try sending to
-                        # expected A (if known)
-                        self.socket.sendto(data, self.endpoint_a)
-                        # Track QoS for B->A direction
-                        if self.qos_metrics_b_to_a and seq_num is not None:
-                            self.qos_metrics_b_to_a.update_packet_received(
-                                seq_num, timestamp, payload_size
-                            )
-                            self.qos_metrics_b_to_a.update_packet_sent()
-                        self.logger.debug(
-                            f"Relayed {len(data)} bytes: B->A (A not learned, using SDP)"
-                        )
-                    elif is_from_a:
-                        # From A but B not known at all yet - must drop packet
-                        # This is rare since endpoint_b is usually set soon
-                        # after endpoint_a
-                        self.logger.debug("Packet from A dropped - waiting for B endpoint")
-                    elif is_from_b:
-                        # From B but A not known at all yet - must drop packet
-                        # This is rare since endpoint_a is usually set first
-                        self.logger.debug("Packet from B dropped - waiting for A endpoint")
+                self.logger.debug(f"Relayed {len(data)} bytes: {direction_label}")
 
             except TimeoutError:
                 continue

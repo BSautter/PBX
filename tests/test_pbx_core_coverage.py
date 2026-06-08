@@ -72,6 +72,15 @@ def _make_pbx_core_shell() -> Any:
     # Security
     obj.security_monitor = MagicMock()
 
+    # Metrics
+    obj.metrics_exporter = MagicMock()
+    obj._metrics_thread = None
+
+    # Concurrency / caching
+    obj._registration_locks: dict[str, Any] = {}
+    obj._registration_locks_guard = MagicMock()
+    obj._device_model_cache: dict[str, str | None] = {}
+
     obj.running = False
     return obj
 
@@ -88,7 +97,7 @@ class TestPBXCoreInit:
     @patch("pbx.core.pbx.AutoAttendantHandler")
     @patch("pbx.core.pbx.VoicemailHandler")
     @patch("pbx.core.pbx.CallRouter")
-    @patch("pbx.core.pbx.PBXFlaskServer")
+    @patch("pbx.api.server.PBXFlaskServer")
     @patch("pbx.core.pbx.FeatureInitializer")
     @patch("pbx.core.pbx.SIPServer")
     @patch("pbx.core.pbx.RTPRelay")
@@ -190,7 +199,7 @@ class TestPBXCoreInit:
     @patch("pbx.core.pbx.AutoAttendantHandler")
     @patch("pbx.core.pbx.VoicemailHandler")
     @patch("pbx.core.pbx.CallRouter")
-    @patch("pbx.core.pbx.PBXFlaskServer")
+    @patch("pbx.api.server.PBXFlaskServer")
     @patch("pbx.core.pbx.FeatureInitializer")
     @patch("pbx.core.pbx.SIPServer")
     @patch("pbx.core.pbx.RTPRelay")
@@ -411,7 +420,9 @@ class TestLoadProvisioningDevices:
 class TestStartStop:
     """Tests for PBXCore.start and PBXCore.stop."""
 
-    def test_start_success(self) -> None:
+    @patch("pbx.core.pbx.PBXCore._start_registration_expiry_timer")
+    @patch("pbx.core.pbx.PBXCore._start_metrics_collector")
+    def test_start_success(self, _mc, _rt) -> None:
         """start() returns True when SIP server starts."""
         pbx = _make_pbx_core_shell()
         pbx.security_monitor.enforce_security_requirements.return_value = True
@@ -448,7 +459,9 @@ class TestStartStop:
 
         assert result is False
 
-    def test_start_api_failure_noncritical(self) -> None:
+    @patch("pbx.core.pbx.PBXCore._start_registration_expiry_timer")
+    @patch("pbx.core.pbx.PBXCore._start_metrics_collector")
+    def test_start_api_failure_noncritical(self, _mc, _rt) -> None:
         """API server failure is non-critical; start() still returns True."""
         pbx = _make_pbx_core_shell()
         pbx.security_monitor.enforce_security_requirements.return_value = True
@@ -460,7 +473,9 @@ class TestStartStop:
         assert result is True
         assert pbx.running is True
 
-    def test_start_no_security_monitor(self) -> None:
+    @patch("pbx.core.pbx.PBXCore._start_registration_expiry_timer")
+    @patch("pbx.core.pbx.PBXCore._start_metrics_collector")
+    def test_start_no_security_monitor(self, _mc, _rt) -> None:
         """start() works when security_monitor attribute doesn't exist."""
         pbx = _make_pbx_core_shell()
         del pbx.security_monitor
@@ -471,7 +486,9 @@ class TestStartStop:
 
         assert result is True
 
-    def test_start_no_dnd_scheduler(self) -> None:
+    @patch("pbx.core.pbx.PBXCore._start_registration_expiry_timer")
+    @patch("pbx.core.pbx.PBXCore._start_metrics_collector")
+    def test_start_no_dnd_scheduler(self, _mc, _rt) -> None:
         """start() works when dnd_scheduler is None."""
         pbx = _make_pbx_core_shell()
         pbx.security_monitor.enforce_security_requirements.return_value = True
@@ -484,21 +501,22 @@ class TestStartStop:
         assert result is True
 
     def test_stop_ends_active_calls(self) -> None:
-        """stop() ends all active calls and releases RTP relays."""
+        """stop() ends all active calls via end_call() and stops subsystems."""
         pbx = _make_pbx_core_shell()
         pbx.running = True
 
         mock_call = MagicMock()
         mock_call.call_id = "call-1"
+        mock_call.routed_to_voicemail = False
+        mock_call.no_answer_timer = None
         pbx.call_manager.get_active_calls.return_value = [mock_call]
-        pbx.recording_system.is_recording.return_value = True
+        pbx.call_manager.get_call.return_value = mock_call
 
         pbx.stop()
 
         assert pbx.running is False
         pbx.call_manager.end_call.assert_called_once_with("call-1")
         pbx.rtp_relay.release_relay.assert_called_once_with("call-1")
-        pbx.recording_system.stop_recording.assert_called_once_with("call-1")
         pbx.security_monitor.stop.assert_called_once()
         pbx.api_server.stop.assert_called_once()
         pbx.sip_server.stop.assert_called_once()
@@ -551,7 +569,9 @@ class TestRegisterExtension:
         )
 
         assert result is True
-        pbx.extension_registry.register.assert_called_once_with("1001", ("192.168.1.100", 5060))
+        pbx.extension_registry.register.assert_called_once_with(
+            "1001", ("192.168.1.100", 5060), expires=3600
+        )
         pbx.webhook_system.trigger_event.assert_called_once()
 
     def test_register_extension_from_config_fallback(self) -> None:
@@ -841,9 +861,17 @@ class TestGetPhoneUserAgent:
 
         assert result is None
 
-    def test_returns_none_when_no_database(self) -> None:
+    def test_returns_none_when_no_phones_db(self) -> None:
         pbx = _make_pbx_core_shell()
-        pbx.database = None
+        pbx.registered_phones_db = None
+
+        result = pbx._get_phone_user_agent("1001")
+
+        assert result is None
+
+    def test_returns_none_when_database_disabled(self) -> None:
+        pbx = _make_pbx_core_shell()
+        pbx.database.enabled = False
 
         result = pbx._get_phone_user_agent("1001")
 
@@ -851,7 +879,7 @@ class TestGetPhoneUserAgent:
 
     def test_returns_none_when_no_result(self) -> None:
         pbx = _make_pbx_core_shell()
-        pbx.database.db_type = "sqlite"
+        pbx.database.enabled = True
         pbx.database.fetch_one.return_value = None
 
         result = pbx._get_phone_user_agent("1001")
@@ -860,36 +888,23 @@ class TestGetPhoneUserAgent:
 
     def test_returns_none_on_exception(self) -> None:
         pbx = _make_pbx_core_shell()
-        pbx.database.db_type = "sqlite"
+        pbx.database.enabled = True
         pbx.database.fetch_one.side_effect = TypeError("broken")
 
         result = pbx._get_phone_user_agent("1001")
 
         assert result is None
 
-    def test_postgresql_query_uses_percent_s(self) -> None:
+    def test_query_uses_percent_s(self) -> None:
         pbx = _make_pbx_core_shell()
-        pbx.database.db_type = "postgresql"
+        pbx.database.enabled = True
         pbx.database.fetch_one.return_value = {"user_agent": "TestUA"}
 
         result = pbx._get_phone_user_agent("1001")
 
         assert result == "TestUA"
-        # Verify the query used %s placeholder
         query_arg = pbx.database.fetch_one.call_args[0][0]
         assert "%s" in query_arg
-        assert "?" not in query_arg
-
-    def test_sqlite_query_uses_question_mark(self) -> None:
-        pbx = _make_pbx_core_shell()
-        pbx.database.db_type = "sqlite"
-        pbx.database.fetch_one.return_value = {"user_agent": "TestUA"}
-
-        result = pbx._get_phone_user_agent("1001")
-
-        assert result == "TestUA"
-        query_arg = pbx.database.fetch_one.call_args[0][0]
-        assert "?" in query_arg
 
 
 # =========================================================================

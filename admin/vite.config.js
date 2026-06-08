@@ -11,16 +11,13 @@ export default defineConfig({
     outDir: 'dist',
     target: 'es2024',
     sourcemap: false,
-    minify: 'esbuild',
+    minify: true,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         login: resolve(__dirname, 'login.html'),
       },
       output: {
-        manualChunks: {
-          vendor: [],
-        },
         assetFileNames: 'assets/[name]-[hash][extname]',
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',

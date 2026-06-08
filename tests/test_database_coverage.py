@@ -23,13 +23,11 @@ from pbx.utils.database import (
 def _make_config(overrides: dict | None = None) -> MagicMock:
     """Return a mock config with sensible defaults."""
     store: dict = {
-        "database.type": "sqlite",
         "database.host": "localhost",
         "database.port": 5432,
         "database.name": "pbx",
         "database.user": "pbx",
         "database.password": "secret",
-        "database.path": ":memory:",
     }
     if overrides:
         store.update(overrides)
@@ -39,15 +37,15 @@ def _make_config(overrides: dict | None = None) -> MagicMock:
     return config
 
 
-def _make_enabled_backend(db_type: str = "sqlite") -> DatabaseBackend:
+def _make_enabled_backend(db_type: str = "postgresql") -> DatabaseBackend:
     """Return a DatabaseBackend with mocked internals that is marked as enabled."""
-    config = _make_config({"database.type": db_type})
+    config = _make_config()
     with patch("pbx.utils.database.get_logger"):
         backend = DatabaseBackend(config)
     backend.enabled = True
     backend.connection = MagicMock()
-    backend._autocommit = db_type == "postgresql"
-    backend.db_type = db_type
+    backend._autocommit = True
+    backend.db_type = "postgresql"
     return backend
 
 
@@ -61,34 +59,27 @@ class TestDatabaseBackendInit:
     """Tests for DatabaseBackend.__init__."""
 
     @patch("pbx.utils.database.get_logger")
-    def test_init_sqlite_default(self, mock_get_logger: MagicMock) -> None:
+    def test_init_defaults(self, mock_get_logger: MagicMock) -> None:
         config = _make_config()
         db = DatabaseBackend(config)
-        assert db.db_type == "sqlite"
+        assert db.db_type == "postgresql"
         assert db.connection is None
         assert db.enabled is False
         assert db._autocommit is False
 
     @patch("pbx.utils.database.get_logger")
     def test_init_postgresql_available(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "postgresql"})
+        config = _make_config()
         with patch("pbx.utils.database.POSTGRES_AVAILABLE", True):
             db = DatabaseBackend(config)
         assert db.db_type == "postgresql"
 
     @patch("pbx.utils.database.get_logger")
-    def test_init_postgresql_not_available_falls_back(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "postgresql"})
+    def test_init_postgresql_not_available(self, mock_get_logger: MagicMock) -> None:
+        config = _make_config()
         with patch("pbx.utils.database.POSTGRES_AVAILABLE", False):
             db = DatabaseBackend(config)
-        # Should fall back to sqlite
-        assert db.db_type == "sqlite"
-
-    @patch("pbx.utils.database.get_logger")
-    def test_init_sqlite_not_available(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "sqlite"})
-        with patch("pbx.utils.database.SQLITE_AVAILABLE", False):
-            db = DatabaseBackend(config)
+        assert db.db_type == "postgresql"
         assert db.enabled is False
 
 
@@ -97,33 +88,8 @@ class TestDatabaseBackendConnect:
     """Tests for DatabaseBackend.connect."""
 
     @patch("pbx.utils.database.get_logger")
-    def test_connect_sqlite_success(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config()
-        db = DatabaseBackend(config)
-        mock_conn = MagicMock()
-        with patch("pbx.utils.database.sqlite3") as mock_sqlite:
-            mock_sqlite.connect.return_value = mock_conn
-            mock_sqlite.Row = MagicMock
-            mock_sqlite.Error = Exception
-            result = db.connect()
-        assert result is True
-        assert db.enabled is True
-        assert db.connection is mock_conn
-
-    @patch("pbx.utils.database.get_logger")
-    def test_connect_sqlite_failure(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config()
-        db = DatabaseBackend(config)
-        with patch("pbx.utils.database.sqlite3") as mock_sqlite:
-            mock_sqlite.connect.side_effect = Exception("oops")
-            mock_sqlite.Error = Exception
-            result = db.connect()
-        assert result is False
-        assert db.enabled is False
-
-    @patch("pbx.utils.database.get_logger")
     def test_connect_postgresql_success(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "postgresql"})
+        config = _make_config()
         mock_psycopg2 = MagicMock()
         mock_conn = MagicMock()
         mock_psycopg2.connect.return_value = mock_conn
@@ -132,7 +98,6 @@ class TestDatabaseBackendConnect:
         with (
             patch.dict("sys.modules", {"psycopg2": mock_psycopg2, "psycopg2.extras": MagicMock()}),
             patch("pbx.utils.database.POSTGRES_AVAILABLE", True),
-            # Patch psycopg2 at module level using create=True
             patch("pbx.utils.database.psycopg2", mock_psycopg2, create=True),
         ):
             result = db.connect()
@@ -142,7 +107,7 @@ class TestDatabaseBackendConnect:
 
     @patch("pbx.utils.database.get_logger")
     def test_connect_postgresql_driver_not_available(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "postgresql"})
+        config = _make_config()
         with patch("pbx.utils.database.POSTGRES_AVAILABLE", True):
             db = DatabaseBackend(config)
         with patch("pbx.utils.database.POSTGRES_AVAILABLE", False):
@@ -151,7 +116,7 @@ class TestDatabaseBackendConnect:
 
     @patch("pbx.utils.database.get_logger")
     def test_connect_postgresql_connection_error(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "postgresql"})
+        config = _make_config()
         mock_psycopg2 = MagicMock()
         mock_psycopg2.connect.side_effect = KeyError("bad config")
         with patch("pbx.utils.database.POSTGRES_AVAILABLE", True):
@@ -164,28 +129,16 @@ class TestDatabaseBackendConnect:
         assert result is False
 
     @patch("pbx.utils.database.get_logger")
-    def test_connect_unsupported_type(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config({"database.type": "mysql"})
-        db = DatabaseBackend(config)
-        db.db_type = "mysql"
-        result = db.connect()
-        assert result is False
-
-    @patch("pbx.utils.database.get_logger")
     def test_connect_generic_exception(self, mock_get_logger: MagicMock) -> None:
         config = _make_config()
-        db = DatabaseBackend(config)
-        with patch("pbx.utils.database.sqlite3") as mock_sqlite:
-            mock_sqlite.connect.side_effect = RuntimeError("unexpected")
-            mock_sqlite.Error = Exception
-            result = db.connect()
-        assert result is False
-
-    @patch("pbx.utils.database.get_logger")
-    def test_connect_sqlite_not_available(self, mock_get_logger: MagicMock) -> None:
-        config = _make_config()
-        db = DatabaseBackend(config)
-        with patch("pbx.utils.database.SQLITE_AVAILABLE", False):
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect.side_effect = RuntimeError("unexpected")
+        with patch("pbx.utils.database.POSTGRES_AVAILABLE", True):
+            db = DatabaseBackend(config)
+        with (
+            patch("pbx.utils.database.POSTGRES_AVAILABLE", True),
+            patch("pbx.utils.database.psycopg2", mock_psycopg2, create=True),
+        ):
             result = db.connect()
         assert result is False
 
@@ -249,7 +202,7 @@ class TestDatabaseBackendExecuteWithContext:
         db.connection.commit.assert_called_once()
 
     def test_no_commit_when_autocommit(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         db._execute_with_context("INSERT INTO t VALUES (1)")
@@ -285,7 +238,7 @@ class TestDatabaseBackendExecuteWithContext:
         db.connection.rollback.assert_called_once()
 
     def test_actual_error_rollback_when_autocommit(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.execute.side_effect = Exception("disk I/O error")
@@ -332,28 +285,8 @@ class TestDatabaseBackendExecuteScript:
         db.connection = None
         assert db.execute_script("SELECT 1;") is False
 
-    def test_execute_script_sqlite(self) -> None:
+    def test_execute_script_splits_statements(self) -> None:
         db = _make_enabled_backend()
-        db._autocommit = False
-        mock_cursor = MagicMock()
-        db.connection.cursor.return_value = mock_cursor
-        result = db.execute_script("CREATE TABLE a (id INT);\nCREATE TABLE b (id INT);")
-        assert result is True
-        mock_cursor.executescript.assert_called_once()
-        db.connection.commit.assert_called_once()
-        mock_cursor.close.assert_called_once()
-
-    def test_execute_script_sqlite_autocommit(self) -> None:
-        db = _make_enabled_backend()
-        db._autocommit = True
-        mock_cursor = MagicMock()
-        db.connection.cursor.return_value = mock_cursor
-        result = db.execute_script("CREATE TABLE a (id INT);")
-        assert result is True
-        db.connection.commit.assert_not_called()
-
-    def test_execute_script_postgresql(self) -> None:
-        db = _make_enabled_backend("postgresql")
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         script = "-- comment\nCREATE TABLE a (id INT);\n\nCREATE TABLE b (id INT);"
@@ -362,8 +295,8 @@ class TestDatabaseBackendExecuteScript:
         assert mock_cursor.execute.call_count == 2
         mock_cursor.close.assert_called_once()
 
-    def test_execute_script_postgresql_no_autocommit(self) -> None:
-        db = _make_enabled_backend("postgresql")
+    def test_execute_script_no_autocommit_commits(self) -> None:
+        db = _make_enabled_backend()
         db._autocommit = False
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
@@ -372,22 +305,29 @@ class TestDatabaseBackendExecuteScript:
         assert result is True
         db.connection.commit.assert_called_once()
 
+    def test_execute_script_autocommit_skips_commit(self) -> None:
+        db = _make_enabled_backend()
+        mock_cursor = MagicMock()
+        db.connection.cursor.return_value = mock_cursor
+        result = db.execute_script("CREATE TABLE a (id INT);")
+        assert result is True
+        db.connection.commit.assert_not_called()
+
     def test_execute_script_error(self) -> None:
         db = _make_enabled_backend()
         db._autocommit = False
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
-        mock_cursor.executescript.side_effect = Exception("syntax error")
+        mock_cursor.execute.side_effect = Exception("syntax error")
         result = db.execute_script("INVALID SQL;")
         assert result is False
         db.connection.rollback.assert_called_once()
 
     def test_execute_script_error_autocommit(self) -> None:
         db = _make_enabled_backend()
-        db._autocommit = True
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
-        mock_cursor.executescript.side_effect = Exception("syntax error")
+        mock_cursor.execute.side_effect = Exception("syntax error")
         result = db.execute_script("INVALID SQL;")
         assert result is False
         db.connection.rollback.assert_called_once()
@@ -429,7 +369,7 @@ class TestDatabaseBackendFetchOne:
         assert result is None
 
     def test_fetch_one_postgresql_with_row(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = {"id": 1, "name": "test"}
@@ -457,7 +397,7 @@ class TestDatabaseBackendFetchOne:
         db.connection.rollback.assert_called_once()
 
     def test_fetch_one_error_autocommit(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_rdc = MagicMock()
@@ -501,7 +441,7 @@ class TestDatabaseBackendFetchAll:
         assert result == [{"id": 1}, {"id": 2}]
 
     def test_fetch_all_postgresql_with_rows(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchall.return_value = [{"id": 1}, {"id": 2}]
@@ -537,7 +477,7 @@ class TestDatabaseBackendFetchAll:
         db.connection.rollback.assert_called_once()
 
     def test_fetch_all_error_autocommit(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_rdc = MagicMock()
@@ -553,20 +493,20 @@ class TestDatabaseBackendBuildTableSQL:
     """Tests for DatabaseBackend._build_table_sql."""
 
     def test_postgresql_replacements(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         template = "id {SERIAL}, active {BOOLEAN_TRUE}, disabled {BOOLEAN_FALSE}"
         result = db._build_table_sql(template)
         assert "SERIAL PRIMARY KEY" in result
         assert "TRUE" in result
         assert "FALSE" in result
 
-    def test_sqlite_replacements(self) -> None:
+    def test_build_table_sql_default_is_postgresql(self) -> None:
         db = _make_enabled_backend()
         template = "id {SERIAL}, active {BOOLEAN_TRUE}, disabled {BOOLEAN_FALSE}"
         result = db._build_table_sql(template)
-        assert "INTEGER PRIMARY KEY AUTOINCREMENT" in result
-        assert "1" in result
-        assert "0" in result
+        assert "SERIAL PRIMARY KEY" in result
+        assert "TRUE" in result
+        assert "FALSE" in result
 
 
 @pytest.mark.unit
@@ -689,53 +629,38 @@ class TestDatabaseBackendApplyFrameworkMigrations:
 class TestVIPCallerDB:
     """Tests for VIPCallerDB."""
 
-    def _make_vip_db(self, db_type: str = "sqlite") -> tuple[VIPCallerDB, DatabaseBackend]:
-        backend = _make_enabled_backend(db_type)
+    def _make_vip_db(self) -> tuple[VIPCallerDB, DatabaseBackend]:
+        backend = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             vip_db = VIPCallerDB(backend)
         return vip_db, backend
 
-    def test_add_vip_sqlite(self) -> None:
+    def test_add_vip(self) -> None:
         vip_db, backend = self._make_vip_db()
         backend.execute = MagicMock(return_value=True)
         result = vip_db.add_vip("+15551234567", priority_level=2, name="Boss", notes="VIP")
         assert result is True
         backend.execute.assert_called_once()
         args = backend.execute.call_args
-        assert "INSERT OR REPLACE" in args[0][0]
+        assert "ON CONFLICT" in args[0][0]
         assert args[0][1][0] == "+15551234567"
 
-    def test_add_vip_postgresql(self) -> None:
-        vip_db, backend = self._make_vip_db("postgresql")
-        backend.execute = MagicMock(return_value=True)
-        result = vip_db.add_vip("+15551234567")
-        assert result is True
-        args = backend.execute.call_args
-        assert "ON CONFLICT" in args[0][0]
-
-    def test_remove_vip_sqlite(self) -> None:
+    def test_remove_vip(self) -> None:
         vip_db, backend = self._make_vip_db()
         backend.execute = MagicMock(return_value=True)
         assert vip_db.remove_vip("+15551234567") is True
         args = backend.execute.call_args
         assert "DELETE FROM vip_callers" in args[0][0]
-        assert "?" in args[0][0]
-
-    def test_remove_vip_postgresql(self) -> None:
-        vip_db, backend = self._make_vip_db("postgresql")
-        backend.execute = MagicMock(return_value=True)
-        assert vip_db.remove_vip("+15551234567") is True
-        args = backend.execute.call_args
         assert "%s" in args[0][0]
 
-    def test_get_vip_sqlite(self) -> None:
+    def test_get_vip_found(self) -> None:
         vip_db, backend = self._make_vip_db()
         backend.fetch_one = MagicMock(return_value={"caller_id": "+15551234567"})
         result = vip_db.get_vip("+15551234567")
         assert result == {"caller_id": "+15551234567"}
 
-    def test_get_vip_postgresql(self) -> None:
-        vip_db, backend = self._make_vip_db("postgresql")
+    def test_get_vip_not_found(self) -> None:
+        vip_db, backend = self._make_vip_db()
         backend.fetch_one = MagicMock(return_value=None)
         result = vip_db.get_vip("+15551234567")
         assert result is None
@@ -748,17 +673,10 @@ class TestVIPCallerDB:
         args = backend.fetch_all.call_args
         assert "ORDER BY priority_level" in args[0][0]
 
-    def test_list_vips_with_priority_sqlite(self) -> None:
+    def test_list_vips_with_priority(self) -> None:
         vip_db, backend = self._make_vip_db()
         backend.fetch_all = MagicMock(return_value=[])
         vip_db.list_vips(priority_level=1)
-        args = backend.fetch_all.call_args
-        assert "priority_level = ?" in args[0][0]
-
-    def test_list_vips_with_priority_postgresql(self) -> None:
-        vip_db, backend = self._make_vip_db("postgresql")
-        backend.fetch_all = MagicMock(return_value=[])
-        vip_db.list_vips(priority_level=2)
         args = backend.fetch_all.call_args
         assert "priority_level = %s" in args[0][0]
 
@@ -782,10 +700,8 @@ class TestVIPCallerDB:
 class TestRegisteredPhonesDB:
     """Tests for RegisteredPhonesDB."""
 
-    def _make_phones_db(
-        self, db_type: str = "sqlite"
-    ) -> tuple[RegisteredPhonesDB, DatabaseBackend]:
-        backend = _make_enabled_backend(db_type)
+    def _make_phones_db(self) -> tuple[RegisteredPhonesDB, DatabaseBackend]:
+        backend = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             phones_db = RegisteredPhonesDB(backend)
         return phones_db, backend
@@ -919,7 +835,7 @@ class TestRegisteredPhonesDB:
         assert success is True
 
     def test_register_phone_postgresql_syntax(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_one = MagicMock(return_value=None)
         backend.execute = MagicMock(return_value=True)
         success, _mac = phones_db.register_phone("1001", "192.168.1.10", "AA:BB:CC:DD:EE:FF")
@@ -942,14 +858,14 @@ class TestRegisteredPhonesDB:
         assert "extension_number" in args[0][0]
 
     def test_get_by_mac_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_one = MagicMock(return_value=None)
         phones_db.get_by_mac("AA:BB:CC:DD:EE:FF")
         args = backend.fetch_one.call_args
         assert "%s" in args[0][0]
 
     def test_get_by_mac_with_extension_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_one = MagicMock(return_value=None)
         phones_db.get_by_mac("AA:BB:CC:DD:EE:FF", "1001")
         args = backend.fetch_one.call_args
@@ -968,14 +884,14 @@ class TestRegisteredPhonesDB:
         assert result is None
 
     def test_get_by_ip_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_one = MagicMock(return_value=None)
         phones_db.get_by_ip("192.168.1.10")
         args = backend.fetch_one.call_args
         assert "%s" in args[0][0]
 
     def test_get_by_ip_with_extension_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_one = MagicMock(return_value=None)
         phones_db.get_by_ip("192.168.1.10", "1001")
         args = backend.fetch_one.call_args
@@ -988,7 +904,7 @@ class TestRegisteredPhonesDB:
         assert len(result) == 1
 
     def test_get_by_extension_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.fetch_all = MagicMock(return_value=[])
         phones_db.get_by_extension("1001")
         args = backend.fetch_all.call_args
@@ -1000,15 +916,8 @@ class TestRegisteredPhonesDB:
         result = phones_db.list_all()
         assert len(result) == 2
 
-    def test_remove_phone_sqlite(self) -> None:
+    def test_remove_phone(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.execute = MagicMock(return_value=True)
-        assert phones_db.remove_phone(1) is True
-        args = backend.execute.call_args
-        assert "?" in args[0][0]
-
-    def test_remove_phone_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
         backend.execute = MagicMock(return_value=True)
         assert phones_db.remove_phone(1) is True
         args = backend.execute.call_args
@@ -1026,7 +935,7 @@ class TestRegisteredPhonesDB:
         assert result is False
 
     def test_update_phone_extension_postgresql(self) -> None:
-        phones_db, backend = self._make_phones_db("postgresql")
+        phones_db, backend = self._make_phones_db()
         backend.execute = MagicMock(return_value=True)
         phones_db.update_phone_extension("AA:BB:CC:DD:EE:FF", "1002")
         args = backend.execute.call_args
@@ -1034,37 +943,35 @@ class TestRegisteredPhonesDB:
 
     def test_cleanup_incomplete_registrations_none_found(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.fetch_one = MagicMock(return_value={"count": 0})
+        backend.execute_rowcount = MagicMock(return_value=0)
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is True
         assert count == 0
 
     def test_cleanup_incomplete_registrations_some_found(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.fetch_one = MagicMock(return_value={"count": 3})
-        backend.execute = MagicMock(return_value=True)
+        backend.execute_rowcount = MagicMock(return_value=3)
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is True
         assert count == 3
 
     def test_cleanup_incomplete_registrations_delete_fails(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.fetch_one = MagicMock(return_value={"count": 2})
-        backend.execute = MagicMock(return_value=False)
+        backend.execute_rowcount = MagicMock(return_value=None)
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is False
-        assert count == 2
+        assert count == 0
 
     def test_cleanup_incomplete_registrations_null_result(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.fetch_one = MagicMock(return_value=None)
+        backend.execute_rowcount = MagicMock(return_value=0)
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is True
         assert count == 0
 
     def test_cleanup_incomplete_registrations_exception(self) -> None:
         phones_db, backend = self._make_phones_db()
-        backend.fetch_one = MagicMock(side_effect=Exception("fail"))
+        backend.execute_rowcount = MagicMock(side_effect=KeyError("fail"))
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is False
         assert count == 0
@@ -1089,8 +996,8 @@ class TestRegisteredPhonesDB:
 class TestExtensionDB:
     """Tests for ExtensionDB."""
 
-    def _make_ext_db(self, db_type: str = "sqlite") -> tuple[ExtensionDB, DatabaseBackend]:
-        backend = _make_enabled_backend(db_type)
+    def _make_ext_db(self) -> tuple[ExtensionDB, DatabaseBackend]:
+        backend = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             ext_db = ExtensionDB(backend)
         return ext_db, backend
@@ -1151,7 +1058,7 @@ class TestExtensionDB:
         assert result is False
 
     def test_add_extension_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.execute = MagicMock(return_value=True)
         result = ext_db.add("1001", "Test User", "hashval")
         assert result is True
@@ -1180,7 +1087,7 @@ class TestExtensionDB:
         assert result == {"number": "1001"}
 
     def test_get_extension_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.fetch_one = MagicMock(return_value=None)
         ext_db.get("1001")
         args = backend.fetch_one.call_args
@@ -1192,15 +1099,8 @@ class TestExtensionDB:
         result = ext_db.get_all()
         assert len(result) == 2
 
-    def test_get_ad_synced_sqlite(self) -> None:
+    def test_get_ad_synced(self) -> None:
         ext_db, backend = self._make_ext_db()
-        backend.fetch_all = MagicMock(return_value=[])
-        ext_db.get_ad_synced()
-        args = backend.fetch_all.call_args
-        assert "ad_synced = 1" in args[0][0]
-
-    def test_get_ad_synced_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
         backend.fetch_all = MagicMock(return_value=[])
         ext_db.get_ad_synced()
         args = backend.fetch_all.call_args
@@ -1296,7 +1196,7 @@ class TestExtensionDB:
 
     def test_update_postgresql_builds_correct_params(self) -> None:
         """For postgresql, the update method uses %s placeholders."""
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.execute = MagicMock(return_value=True)
         result = ext_db.update("1001", name="New Name")
         assert result is True
@@ -1308,30 +1208,15 @@ class TestExtensionDB:
         assert "New Name" in params
         assert "1001" in params
 
-    def test_delete_sqlite(self) -> None:
+    def test_delete(self) -> None:
         ext_db, backend = self._make_ext_db()
-        backend.execute = MagicMock(return_value=True)
-        assert ext_db.delete("1001") is True
-        args = backend.execute.call_args
-        assert "?" in args[0][0]
-
-    def test_delete_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
         backend.execute = MagicMock(return_value=True)
         assert ext_db.delete("1001") is True
         args = backend.execute.call_args
         assert "%s" in args[0][0]
 
-    def test_search_sqlite(self) -> None:
+    def test_search(self) -> None:
         ext_db, backend = self._make_ext_db()
-        backend.fetch_all = MagicMock(return_value=[])
-        ext_db.search("test")
-        args = backend.fetch_all.call_args
-        assert "LIKE ?" in args[0][0]
-        assert args[0][1] == ("%test%", "%test%", "%test%")
-
-    def test_search_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
         backend.fetch_all = MagicMock(return_value=[])
         ext_db.search("test")
         args = backend.fetch_all.call_args
@@ -1342,8 +1227,8 @@ class TestExtensionDB:
 class TestExtensionDBConfig:
     """Tests for ExtensionDB.get_config / set_config."""
 
-    def _make_ext_db(self, db_type: str = "sqlite") -> tuple[ExtensionDB, DatabaseBackend]:
-        backend = _make_enabled_backend(db_type)
+    def _make_ext_db(self) -> tuple[ExtensionDB, DatabaseBackend]:
+        backend = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             ext_db = ExtensionDB(backend)
         return ext_db, backend
@@ -1441,7 +1326,7 @@ class TestExtensionDBConfig:
         assert result == "default"
 
     def test_get_config_postgresql_syntax(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.fetch_one = MagicMock(return_value=None)
         ext_db.get_config("key")
         args = backend.fetch_one.call_args
@@ -1496,7 +1381,7 @@ class TestExtensionDBConfig:
         assert result is False
 
     def test_set_config_postgresql_syntax(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.fetch_one = MagicMock(return_value=None)
         backend.execute = MagicMock(return_value=True)
         ext_db.set_config("key", "value")
@@ -1504,7 +1389,7 @@ class TestExtensionDBConfig:
         assert "%s" in args[0][0]
 
     def test_set_config_existing_postgresql(self) -> None:
-        ext_db, backend = self._make_ext_db("postgresql")
+        ext_db, backend = self._make_ext_db()
         backend.fetch_one = MagicMock(return_value={"config_key": "key"})
         backend.execute = MagicMock(return_value=True)
         ext_db.set_config("key", "new_value")
@@ -1529,10 +1414,8 @@ class TestExtensionDBConfig:
 class TestProvisionedDevicesDB:
     """Tests for ProvisionedDevicesDB."""
 
-    def _make_prov_db(
-        self, db_type: str = "sqlite"
-    ) -> tuple[ProvisionedDevicesDB, DatabaseBackend]:
-        backend = _make_enabled_backend(db_type)
+    def _make_prov_db(self) -> tuple[ProvisionedDevicesDB, DatabaseBackend]:
+        backend = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             prov_db = ProvisionedDevicesDB(backend)
         return prov_db, backend
@@ -1567,7 +1450,7 @@ class TestProvisionedDevicesDB:
         assert result is True
 
     def test_add_device_postgresql_new(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.fetch_one = MagicMock(return_value=None)
         backend.execute = MagicMock(return_value=True)
         with patch("pbx.utils.database.detect_device_type", return_value="phone"):
@@ -1577,7 +1460,7 @@ class TestProvisionedDevicesDB:
         assert "%s" in args[0][0]
 
     def test_add_device_postgresql_update(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.fetch_one = MagicMock(return_value={"mac_address": "AA:BB:CC:DD:EE:FF"})
         backend.execute = MagicMock(return_value=True)
         with patch("pbx.utils.database.detect_device_type", return_value="phone"):
@@ -1609,7 +1492,7 @@ class TestProvisionedDevicesDB:
         assert result is not None
 
     def test_get_device_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.fetch_one = MagicMock(return_value=None)
         prov_db.get_device("AA:BB:CC:DD:EE:FF")
         args = backend.fetch_one.call_args
@@ -1622,7 +1505,7 @@ class TestProvisionedDevicesDB:
         assert result is not None
 
     def test_get_device_by_extension_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.fetch_one = MagicMock(return_value=None)
         prov_db.get_device_by_extension("1001")
         args = backend.fetch_one.call_args
@@ -1635,7 +1518,7 @@ class TestProvisionedDevicesDB:
         assert result is not None
 
     def test_get_device_by_ip_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.fetch_one = MagicMock(return_value=None)
         prov_db.get_device_by_ip("10.0.0.1")
         args = backend.fetch_one.call_args
@@ -1647,17 +1530,10 @@ class TestProvisionedDevicesDB:
         result = prov_db.list_all()
         assert len(result) == 1
 
-    def test_list_by_type_sqlite(self) -> None:
+    def test_list_by_type(self) -> None:
         prov_db, backend = self._make_prov_db()
         backend.fetch_all = MagicMock(return_value=[])
         prov_db.list_by_type("phone")
-        args = backend.fetch_all.call_args
-        assert "device_type = ?" in args[0][0]
-
-    def test_list_by_type_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
-        backend.fetch_all = MagicMock(return_value=[])
-        prov_db.list_by_type("ata")
         args = backend.fetch_all.call_args
         assert "device_type = %s" in args[0][0]
 
@@ -1687,33 +1563,19 @@ class TestProvisionedDevicesDB:
             result = prov_db._detect_device_type("grandstream", "ht801")
         assert result == "ata"
 
-    def test_remove_device_sqlite(self) -> None:
+    def test_remove_device(self) -> None:
         prov_db, backend = self._make_prov_db()
-        backend.execute = MagicMock(return_value=True)
-        assert prov_db.remove_device("AA:BB:CC:DD:EE:FF") is True
-        args = backend.execute.call_args
-        assert "?" in args[0][0]
-
-    def test_remove_device_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
         backend.execute = MagicMock(return_value=True)
         assert prov_db.remove_device("AA:BB:CC:DD:EE:FF") is True
         args = backend.execute.call_args
         assert "%s" in args[0][0]
 
-    def test_mark_provisioned_sqlite(self) -> None:
+    def test_mark_provisioned(self) -> None:
         prov_db, backend = self._make_prov_db()
         backend.execute = MagicMock(return_value=True)
         assert prov_db.mark_provisioned("AA:BB:CC:DD:EE:FF") is True
         args = backend.execute.call_args
         assert "last_provisioned" in args[0][0]
-        assert "?" in args[0][0]
-
-    def test_mark_provisioned_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
-        backend.execute = MagicMock(return_value=True)
-        assert prov_db.mark_provisioned("AA:BB:CC:DD:EE:FF") is True
-        args = backend.execute.call_args
         assert "%s" in args[0][0]
 
     def test_set_static_ip_sqlite(self) -> None:
@@ -1724,7 +1586,7 @@ class TestProvisionedDevicesDB:
         assert "static_ip" in args[0][0]
 
     def test_set_static_ip_postgresql(self) -> None:
-        prov_db, backend = self._make_prov_db("postgresql")
+        prov_db, backend = self._make_prov_db()
         backend.execute = MagicMock(return_value=True)
         assert prov_db.set_static_ip("AA:BB:CC:DD:EE:FF", "10.0.0.1") is True
         args = backend.execute.call_args
@@ -1801,14 +1663,24 @@ class TestGetDatabase:
 class TestDatabaseBackendEdgeCases:
     """Additional edge case tests."""
 
-    def test_execute_with_context_already_exists_with_rollback(self) -> None:
+    def test_execute_with_context_unique_constraint_data_op_fails(self) -> None:
         db = _make_enabled_backend()
         db._autocommit = False
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.execute.side_effect = Exception("unique constraint violation")
         result = db._execute_with_context("INSERT ...", "insert", critical=True)
-        assert result is True  # "unique constraint" matches already_exists
+        assert result is False
+        db.connection.rollback.assert_called_once()
+
+    def test_execute_with_context_unique_constraint_schema_op_succeeds(self) -> None:
+        db = _make_enabled_backend()
+        db._autocommit = False
+        mock_cursor = MagicMock()
+        db.connection.cursor.return_value = mock_cursor
+        mock_cursor.execute.side_effect = Exception("unique constraint violation")
+        result = db._execute_with_context("CREATE ...", "table creation", critical=True)
+        assert result is True
         db.connection.rollback.assert_called_once()
 
     def test_execute_with_context_must_be_owner_non_critical(self) -> None:
@@ -1849,7 +1721,7 @@ class TestDatabaseBackendEdgeCases:
         db.connection.rollback.assert_called_once()
 
     def test_postgresql_fetch_one_uses_real_dict_cursor(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = {"id": 1}
@@ -1859,7 +1731,7 @@ class TestDatabaseBackendEdgeCases:
             db.connection.cursor.assert_called_with(cursor_factory=mock_rdc)
 
     def test_postgresql_fetch_all_uses_real_dict_cursor(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchall.return_value = []
@@ -1869,7 +1741,7 @@ class TestDatabaseBackendEdgeCases:
             db.connection.cursor.assert_called_with(cursor_factory=mock_rdc)
 
     def test_execute_script_postgresql_skips_comments_and_empty_lines(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         script = "-- This is a comment\n\n-- Another comment\nSELECT 1;\n\n-- end"
@@ -1884,7 +1756,7 @@ class TestDatabaseBackendEdgeCases:
         assert result == "CREATE TABLE test (id INT)"
 
     def test_migrate_schema_postgresql_query_syntax(self) -> None:
-        db = _make_enabled_backend("postgresql")
+        db = _make_enabled_backend()
         mock_cursor = MagicMock()
         db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = {"column_name": "transcription_text"}
@@ -1898,7 +1770,7 @@ class TestDatabaseBackendEdgeCases:
         backend_obj = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             phones_db = RegisteredPhonesDB(backend_obj)
-        backend_obj.fetch_one = MagicMock(side_effect=KeyError("missing"))
+        backend_obj.execute_rowcount = MagicMock(side_effect=KeyError("missing"))
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is False
         assert count == 0
@@ -1907,7 +1779,7 @@ class TestDatabaseBackendEdgeCases:
         backend_obj = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             phones_db = RegisteredPhonesDB(backend_obj)
-        backend_obj.fetch_one = MagicMock(side_effect=TypeError("bad type"))
+        backend_obj.execute_rowcount = MagicMock(side_effect=TypeError("bad type"))
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is False
         assert count == 0
@@ -1968,7 +1840,7 @@ class TestDatabaseBackendEdgeCases:
         backend_obj = _make_enabled_backend()
         with patch("pbx.utils.database.get_logger"):
             phones_db = RegisteredPhonesDB(backend_obj)
-        backend_obj.fetch_one = MagicMock(side_effect=ValueError("bad value"))
+        backend_obj.execute_rowcount = MagicMock(side_effect=ValueError("bad value"))
         success, count = phones_db.cleanup_incomplete_registrations()
         assert success is False
         assert count == 0
