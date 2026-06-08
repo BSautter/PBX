@@ -47,7 +47,7 @@ alembic==1.18.4
 
 # Enterprise Integrations
 requests==2.34.2
-msal==1.36.0
+msal==1.37.0
 
 # Authentication
 fido2==2.2.0
@@ -60,15 +60,15 @@ vosk==0.3.45
 spacy==3.8.14
 nltk==3.9.4
 numpy==2.4.6
-scikit-learn==1.8.0
+scikit-learn==1.9.0
 scipy==1.17.1
 pyAudioAnalysis==0.3.14
 librosa==0.11.0
-soundfile==0.13.1
+soundfile==0.14.0
 
 # Video Codec Support
 imageio-ffmpeg==0.6.0
-av==17.0.1
+av==17.1.0
 
 # Data Validation
 pydantic==2.13.4
@@ -111,7 +111,7 @@ sphinx-rtd-theme==3.1.0
 pip-audit==2.10.0
 
 # Development Utilities
-ipython==9.13.0
+ipython==9.14.1
 ipdb==0.13.13
 
 # ============================================================================
