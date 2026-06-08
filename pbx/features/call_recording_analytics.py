@@ -366,6 +366,7 @@ class RecordingAnalytics:
         }
 
         sentiment_score = 0.0
+        confidence = 0.0
         overall_sentiment = "neutral"
 
         # Use spaCy for enhanced sentiment analysis if available
@@ -419,10 +420,11 @@ class RecordingAnalytics:
 
         return {
             "overall_sentiment": overall_sentiment,
-            "sentiment_score": sentiment_score,  # -1.0 to 1.0
-            "customer_sentiment": overall_sentiment,  # Would differentiate in production
-            "agent_sentiment": "neutral",  # Would analyze separately in production
-            "sentiment_timeline": [],  # Would track sentiment changes over call
+            "sentiment_score": sentiment_score,
+            "confidence": confidence,
+            "customer_sentiment": overall_sentiment,
+            "agent_sentiment": "neutral",
+            "sentiment_timeline": [],
         }
 
     def _detect_keywords(self, audio_path: str) -> dict:

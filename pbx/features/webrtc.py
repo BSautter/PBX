@@ -1855,25 +1855,33 @@ class WebRTCGateway:
                     call.voicemail_access = True
                     call.voicemail_extension = vm_ext
                     call.connect()
-                    self.pbx_core.cdr_system.start_record(call_id, from_extension, target_extension)
-                    self.pbx_core.cdr_system.mark_answered(call_id)
+                    if self.pbx_core.cdr_system:
+                        self.pbx_core.cdr_system.start_record(
+                            call_id, from_extension, target_extension
+                        )
+                        self.pbx_core.cdr_system.mark_answered(call_id)
 
-                    mailbox = self.pbx_core.voicemail_system.get_mailbox(vm_ext)
-                    from pbx.features.voicemail import VoicemailIVR
+                    if not self.pbx_core.voicemail_system:
+                        self.logger.warning(
+                            f"Voicemail system unavailable for WebRTC call to {vm_ext}"
+                        )
+                    else:
+                        mailbox = self.pbx_core.voicemail_system.get_mailbox(vm_ext)
+                        from pbx.features.voicemail import VoicemailIVR
 
-                    voicemail_ivr = VoicemailIVR(self.pbx_core.voicemail_system, vm_ext)
-                    call.voicemail_ivr = voicemail_ivr
+                        voicemail_ivr = VoicemailIVR(self.pbx_core.voicemail_system, vm_ext)
+                        call.voicemail_ivr = voicemail_ivr
 
-                    vm_thread = threading.Thread(
-                        target=self.pbx_core._voicemail_ivr_session,
-                        args=(call_id, call, mailbox, voicemail_ivr),
-                        daemon=True,
-                        name=f"WebRTC-VM-{call_id[:8]}",
-                    )
-                    vm_thread.start()
-                    self.logger.info(
-                        f"Voicemail IVR started for WebRTC call {call_id} (mailbox {vm_ext})"
-                    )
+                        vm_thread = threading.Thread(
+                            target=self.pbx_core._voicemail_ivr_session,
+                            args=(call_id, call, mailbox, voicemail_ivr),
+                            daemon=True,
+                            name=f"WebRTC-VM-{call_id[:8]}",
+                        )
+                        vm_thread.start()
+                        self.logger.info(
+                            f"Voicemail IVR started for WebRTC call {call_id} (mailbox {vm_ext})"
+                        )
                 elif (
                     hasattr(self.pbx_core, "paging_system")
                     and self.pbx_core.paging_system
@@ -1894,8 +1902,11 @@ class WebRTCGateway:
                     call.page_id = page_id
                     call.paging_zones = page_info.get("zone_names", "Unknown")
                     call.connect()
-                    self.pbx_core.cdr_system.start_record(call_id, from_extension, target_extension)
-                    self.pbx_core.cdr_system.mark_answered(call_id)
+                    if self.pbx_core.cdr_system:
+                        self.pbx_core.cdr_system.start_record(
+                            call_id, from_extension, target_extension
+                        )
+                        self.pbx_core.cdr_system.mark_answered(call_id)
 
                     dac_devices = self.pbx_core.paging_system.get_dac_devices(
                         page_info.get("zones", [])

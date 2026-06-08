@@ -7,7 +7,8 @@ Uses current_app.config['ADMIN_DIR'] for the admin directory path.
 import mimetypes
 from pathlib import Path
 
-from flask import Blueprint, Response, current_app, redirect
+from flask import Blueprint, current_app, redirect
+from werkzeug.wrappers import Response
 
 from pbx.api.utils import send_json
 from pbx.utils.logger import get_logger

@@ -47,7 +47,7 @@ def handle_get_voicemail(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         # Get mailbox
@@ -149,7 +149,7 @@ def handle_post_voicemail(subpath: str) -> Response:
         extension = parts[0]
 
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         mailbox = pbx_core.voicemail_system.get_mailbox(extension)
@@ -183,7 +183,7 @@ def handle_update_voicemail(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         body = get_request_body()
@@ -231,7 +231,7 @@ def handle_delete_voicemail(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         # Get mailbox
@@ -323,7 +323,7 @@ def _handle_get_voicemail_box_details(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         vm_system = pbx_core.voicemail_system
@@ -376,7 +376,7 @@ def _handle_get_voicemail_greeting(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         vm_system = pbx_core.voicemail_system
@@ -420,7 +420,7 @@ def handle_export_voicemail_box(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         vm_system = pbx_core.voicemail_system
@@ -503,7 +503,7 @@ def handle_upload_voicemail_greeting(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         # Get audio data from request body
@@ -543,7 +543,7 @@ def handle_clear_voicemail_box(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         vm_system = pbx_core.voicemail_system
@@ -583,7 +583,7 @@ def handle_delete_voicemail_greeting(subpath: str) -> Response:
 
         # Verify the user has access to this extension
         allowed, error_response = check_extension_access(extension)
-        if not allowed:
+        if not allowed and error_response is not None:
             return error_response
 
         vm_system = pbx_core.voicemail_system

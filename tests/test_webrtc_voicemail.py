@@ -443,8 +443,8 @@ class TestWebRTCPaging:
                 webrtc_signaling=mock_signaling,
             )
 
-            # Call should still be created (page initiation failure is logged)
-            assert call_id is not None
+            # When paging initiation fails, the gateway returns None
+            assert call_id is None
 
 
 class TestWebRTCUnsupportedDialplan:
@@ -488,9 +488,9 @@ class TestWebRTCUnsupportedDialplan:
                 webrtc_signaling=mock_signaling,
             )
 
-            # Call is created, connect() called for status polling
+            # Call is created but connect() is NOT called for unsupported patterns
             assert call_id is not None
-            mock_call.connect.assert_called_once()
+            mock_call.connect.assert_not_called()
 
 
 class TestWebRTCServiceMediaBridgeFailure:

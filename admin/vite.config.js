@@ -12,7 +12,6 @@ export default defineConfig({
     target: 'es2024',
     sourcemap: false,
     minify: 'esbuild',
-    cssMinify: true,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
