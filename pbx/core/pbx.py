@@ -3,13 +3,15 @@ Core PBX implementation
 Central coordinator for all PBX functionality
 """
 
+from __future__ import annotations
+
 import re
 import struct
 import threading
 import traceback
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pbx.core.auto_attendant_handler import AutoAttendantHandler
 from pbx.core.call import CallManager
@@ -26,6 +28,49 @@ from pbx.utils.config import Config
 from pbx.utils.database import DatabaseBackend, RegisteredPhonesDB
 from pbx.utils.logger import PBXLogger, get_logger
 
+if TYPE_CHECKING:
+    from pbx.features.auto_attendant import AutoAttendant
+    from pbx.features.call_parking import CallParkingSystem
+    from pbx.features.call_queue import QueueSystem
+    from pbx.features.call_recording import CallRecordingSystem
+    from pbx.features.callback_queue import CallbackQueue
+    from pbx.features.cdr import CDRSystem
+    from pbx.features.conference import ConferenceSystem
+    from pbx.features.crm_integration import CRMIntegration
+    from pbx.features.dnd_scheduling import DNDScheduler
+    from pbx.features.e911_location import E911LocationService
+    from pbx.features.emergency_notification import EmergencyNotificationSystem
+    from pbx.features.find_me_follow_me import FindMeFollowMe
+    from pbx.features.fraud_detection import FraudDetectionSystem
+    from pbx.features.hot_desking import HotDeskingSystem
+    from pbx.features.karis_law import KarisLawCompliance
+    from pbx.features.mfa import MFAManager
+    from pbx.features.mobile_push import MobilePushNotifications
+    from pbx.features.music_on_hold import MusicOnHold
+    from pbx.features.paging import PagingSystem
+    from pbx.features.phone_book import PhoneBook
+    from pbx.features.phone_provisioning import PhoneProvisioning
+    from pbx.features.presence import PresenceSystem
+    from pbx.features.recording_announcements import RecordingAnnouncements
+    from pbx.features.recording_retention import RecordingRetentionManager
+    from pbx.features.session_border_controller import SessionBorderController
+    from pbx.features.sip_trunk import SIPTrunkSystem
+    from pbx.features.skills_routing import SkillsBasedRouter
+    from pbx.features.statistics import StatisticsEngine
+    from pbx.features.time_based_routing import TimeBasedRouting
+    from pbx.features.voicemail import VoicemailSystem
+    from pbx.features.webhooks import WebhookSystem
+    from pbx.features.webrtc import WebRTCGateway, WebRTCSignalingServer
+    from pbx.integrations.active_directory import ActiveDirectoryIntegration
+    from pbx.integrations.espocrm import EspoCRMIntegration
+    from pbx.integrations.jitsi import JitsiIntegration
+    from pbx.integrations.matrix import MatrixIntegration
+    from pbx.integrations.zoom import ZoomIntegration
+    from pbx.utils.database import ExtensionDB
+    from pbx.utils.prometheus_exporter import PBXMetricsExporter
+    from pbx.utils.security import ThreatDetector
+    from pbx.utils.security_monitor import SecurityMonitor
+
 _RE_SIP_EXT = re.compile(r"sip:(\d+)@")
 _RE_MAC_PARAM = re.compile(r"mac=([0-9a-fA-F:]{17}|[0-9a-fA-F-]{17})")
 _RE_SIP_INSTANCE = re.compile(r'sip\.instance="<urn:uuid:([0-9a-f-]+)>"', re.IGNORECASE)
@@ -34,6 +79,53 @@ _RE_MAC_IN_UA = re.compile(r"([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}")
 
 class PBXCore:
     """Main PBX system coordinator"""
+
+    # Attributes set by FeatureInitializer.initialize()
+    voicemail_system: VoicemailSystem
+    conference_system: ConferenceSystem
+    recording_system: CallRecordingSystem
+    queue_system: QueueSystem
+    presence_system: PresenceSystem
+    parking_system: CallParkingSystem
+    cdr_system: CDRSystem
+    moh_system: MusicOnHold
+    trunk_system: SIPTrunkSystem
+    statistics_engine: StatisticsEngine
+    auto_attendant: AutoAttendant | None
+    phone_provisioning: PhoneProvisioning | None
+    ad_integration: ActiveDirectoryIntegration | None
+    phone_book: PhoneBook | None
+    emergency_notification: EmergencyNotificationSystem | None
+    paging_system: PagingSystem | None
+    e911_location: E911LocationService | None
+    karis_law: KarisLawCompliance | None
+    webhook_system: WebhookSystem
+    webrtc_signaling: WebRTCSignalingServer | None
+    webrtc_gateway: WebRTCGateway | None
+    crm_integration: CRMIntegration | None
+    hot_desking: HotDeskingSystem | None
+    find_me_follow_me: FindMeFollowMe
+    time_based_routing: TimeBasedRouting
+    recording_retention: RecordingRetentionManager
+    fraud_detection: FraudDetectionSystem
+    callback_queue: CallbackQueue
+    mobile_push: MobilePushNotifications
+    recording_announcements: RecordingAnnouncements
+    mfa_manager: MFAManager | None
+    threat_detector: ThreatDetector | None
+    security_monitor: SecurityMonitor
+    dnd_scheduler: DNDScheduler | None
+    sbc: SessionBorderController | None
+    skills_router: SkillsBasedRouter | None
+    jitsi_integration: JitsiIntegration | None
+    matrix_integration: MatrixIntegration | None
+    espocrm_integration: EspoCRMIntegration | None
+    zoom_integration: ZoomIntegration | None
+
+    # Database attributes (set conditionally in __init__)
+    extension_db: ExtensionDB | None
+    registered_phones_db: RegisteredPhonesDB | None
+    metrics_exporter: PBXMetricsExporter | None
 
     def __init__(self, config_file: str = "config.yml") -> None:
         """
@@ -253,7 +345,7 @@ class PBXCore:
         seeded_count = 0
 
         for ext_config in critical_extensions:
-            number = ext_config["number"]
+            number = str(ext_config["number"])
 
             # Check if extension already exists
             existing = self.extension_db.get(number)
@@ -262,19 +354,19 @@ class PBXCore:
 
             try:
                 # Hash the password
-                password_hash, _ = encryption.hash_password(ext_config["password"])
+                password_hash, _ = encryption.hash_password(str(ext_config["password"]))
 
                 # Add extension to database
                 success = self.extension_db.add(
                     number=number,
-                    name=ext_config["name"],
+                    name=str(ext_config["name"]),
                     password_hash=password_hash,
-                    email=ext_config.get("email"),
-                    allow_external=ext_config.get("allow_external", True),
-                    voicemail_pin=ext_config.get("voicemail_pin"),
+                    email=str(ext_config.get("email", "")),
+                    allow_external=bool(ext_config.get("allow_external", True)),
+                    voicemail_pin=str(ext_config.get("voicemail_pin", "")),
                     ad_synced=False,
                     ad_username=None,
-                    is_admin=ext_config.get("is_admin", False),
+                    is_admin=bool(ext_config.get("is_admin", False)),
                 )
 
                 if success:
@@ -332,25 +424,29 @@ class PBXCore:
 
         import psutil
 
+        exporter = self.metrics_exporter
+        if exporter is None:
+            return
+
         while self._metrics_running:
             try:
                 cpu = psutil.cpu_percent(interval=1)
                 mem = psutil.virtual_memory()
-                self.metrics_exporter.update_system_resources(
+                exporter.update_system_resources(
                     cpu_percent=cpu,
                     memory_bytes=mem.used,
                 )
 
                 disk = psutil.disk_usage("/")
-                self.metrics_exporter.disk_usage_bytes.labels(mount_point="/").set(disk.used)
+                exporter.disk_usage_bytes.labels(mount_point="/").set(disk.used)
 
-                self.metrics_exporter.update_extensions(
+                exporter.update_extensions(
                     self.extension_registry.get_registered_count()
                 )
-                self.metrics_exporter.active_calls.set(len(self.call_manager.get_active_calls()))
+                exporter.active_calls.set(len(self.call_manager.get_active_calls()))
 
-                if hasattr(self, "conference_system") and self.conference_system:
-                    self.metrics_exporter.conferences_active.set(
+                if hasattr(self, "conference_system") and self.conference_system is not None:
+                    exporter.conferences_active.set(
                         len(self.conference_system.get_active_rooms())
                     )
 
@@ -360,7 +456,7 @@ class PBXCore:
             # Sleep in small increments so stop is responsive
             for _ in range(self._metrics_interval):
                 if not self._metrics_running:
-                    break
+                    return  # type: ignore[unreachable]
                 time.sleep(1)
 
     def _load_provisioning_devices(self) -> None:
@@ -453,7 +549,7 @@ class PBXCore:
         self.running = False
 
         # Stop registration expiry timer
-        if hasattr(self, "_reg_expiry_timer") and self._reg_expiry_timer:
+        if hasattr(self, "_reg_expiry_timer") and self._reg_expiry_timer is not None:
             self._reg_expiry_timer.cancel()
 
         # Stop Prometheus metrics collector
@@ -996,7 +1092,7 @@ class PBXCore:
         Returns:
             User-Agent string or None if not found
         """
-        if not self.registered_phones_db or not self.database:
+        if not self.registered_phones_db or not self.database.enabled:
             return None
 
         try:
@@ -1010,7 +1106,7 @@ class PBXCore:
 
             result = self.database.fetch_one(query, (extension_number,))
             if result and result.get("user_agent"):
-                return result["user_agent"]
+                return str(result["user_agent"])
         except (KeyError, TypeError, ValueError) as e:
             self.logger.debug(f"Error retrieving User-Agent for extension {extension_number}: {e}")
 
@@ -1067,7 +1163,7 @@ class PBXCore:
         # First, try to get configured external IP
         external_ip = self.config.get("server.external_ip")
         if external_ip:
-            return external_ip
+            return str(external_ip)
 
         # Fallback: try to detect local IP
         import socket
@@ -1076,7 +1172,7 @@ class PBXCore:
             # Create a socket to determine the local IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
+            ip: str = s.getsockname()[0]
             s.close()
             return ip
         except OSError:
@@ -1142,7 +1238,7 @@ class PBXCore:
 
         # Now we have both endpoints, complete the RTP relay setup
         # Cancel no-answer timer if it's running
-        if call and call.no_answer_timer:
+        if call is not None and call.no_answer_timer:
             call.no_answer_timer.cancel()
             self.logger.info(f"Cancelled no-answer timer for call {call_id}")
 

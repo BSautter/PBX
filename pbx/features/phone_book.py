@@ -277,7 +277,7 @@ class PhoneBook:
 
         return results
 
-    def sync_from_ad(self, ad_integration: Any, extension_registry: str) -> int:
+    def sync_from_ad(self, ad_integration: Any, extension_registry: Any) -> int:
         """
         Sync phone book from Active Directory
 

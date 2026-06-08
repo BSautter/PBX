@@ -6,6 +6,7 @@ Provides PostgreSQL storage for VIP callers, CDR, and other data
 import json
 import traceback
 from datetime import UTC, datetime
+from typing import Any
 
 from pbx.utils.device_types import detect_device_type
 from pbx.utils.logger import get_logger
@@ -27,12 +28,12 @@ class DatabaseBackend:
     Provides unified interface for database operations
     """
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Any) -> None:
         """
         Initialize database backend
 
         Args:
-            config: Database configuration
+            config: Database configuration (Config object or dict)
         """
         self.logger = get_logger()
         self.config = config
