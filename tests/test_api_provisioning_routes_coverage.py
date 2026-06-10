@@ -421,7 +421,8 @@ class TestGetRegisteredPhones:
             {"extension_number": "1001", "ip_address": "192.168.1.50"}
         ]
 
-        resp = api_client.get("/api/registered-phones")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert len(data) == 1
@@ -429,7 +430,8 @@ class TestGetRegisteredPhones:
     def test_no_database(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.registered_phones_db = None
 
-        resp = api_client.get("/api/registered-phones")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data == []
@@ -438,7 +440,8 @@ class TestGetRegisteredPhones:
         mock_pbx_core.registered_phones_db = MagicMock()
         mock_pbx_core.registered_phones_db.list_all.side_effect = RuntimeError("db error")
 
-        resp = api_client.get("/api/registered-phones")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones")
         assert resp.status_code == 500
 
 
@@ -462,7 +465,8 @@ class TestGetRegisteredPhonesWithMac:
         mock_pbx_core.phone_provisioning = MagicMock()
         mock_pbx_core.phone_provisioning.get_all_devices.return_value = [device]
 
-        resp = api_client.get("/api/registered-phones/with-mac")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/with-mac")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert len(data) == 1
@@ -479,14 +483,16 @@ class TestGetRegisteredPhonesWithMac:
         if hasattr(mock_pbx_core, "phone_provisioning"):
             del mock_pbx_core.phone_provisioning
 
-        resp = api_client.get("/api/registered-phones/with-mac")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/with-mac")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data[0]["mac_source"] == "sip_registration"
 
     def test_no_pbx_core(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        with patch("pbx.api.routes.provisioning.get_pbx_core", return_value=None):
-            resp = api_client.get("/api/registered-phones/with-mac")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            with patch("pbx.api.routes.provisioning.get_pbx_core", return_value=None):
+                resp = api_client.get("/api/registered-phones/with-mac")
         assert resp.status_code == 500
 
     def test_no_database(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
@@ -494,7 +500,8 @@ class TestGetRegisteredPhonesWithMac:
         if hasattr(mock_pbx_core, "phone_provisioning"):
             del mock_pbx_core.phone_provisioning
 
-        resp = api_client.get("/api/registered-phones/with-mac")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/with-mac")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data == []
@@ -515,13 +522,15 @@ class TestGetRegisteredPhonesByExtension:
             {"extension_number": "1001", "ip_address": "192.168.1.50"}
         ]
 
-        resp = api_client.get("/api/registered-phones/extension/1001")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/extension/1001")
         assert resp.status_code == 200
 
     def test_no_database(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.registered_phones_db = None
 
-        resp = api_client.get("/api/registered-phones/extension/1001")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/extension/1001")
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data == []
@@ -530,7 +539,8 @@ class TestGetRegisteredPhonesByExtension:
         mock_pbx_core.registered_phones_db = MagicMock()
         mock_pbx_core.registered_phones_db.get_by_extension.side_effect = RuntimeError("err")
 
-        resp = api_client.get("/api/registered-phones/extension/1001")
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
+            resp = api_client.get("/api/registered-phones/extension/1001")
         assert resp.status_code == 500
 
 

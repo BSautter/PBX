@@ -188,7 +188,7 @@ class ProductionHealthChecker:
         except ImportError:
             # Database module not available, that's ok in some configs
             return True, {"status": "not_configured", "message": "Database module not available"}
-        except (KeyError, TypeError, ValueError, OSError) as e:
+        except Exception as e:
             logger.error(f"Database check failed: {e}")
             return False, {"status": "error", "error": str(e)}
 
@@ -289,12 +289,12 @@ class ProductionHealthChecker:
                         [e for e in self.pbx_core.extension_registry.get_all() if e.registered]
                     )
                     metrics["total_extensions"] = len(self.pbx_core.extension_registry.get_all())
-                except (KeyError, TypeError, ValueError) as e:
+                except Exception as e:
                     logger.debug(f"Could not get PBX metrics: {e}")
 
             return metrics
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             logger.error(f"Error collecting metrics: {e}")
             return {}
 

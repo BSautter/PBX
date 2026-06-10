@@ -39,6 +39,7 @@ class MockTrunk:
     def __init__(self, name: str, host: str) -> None:
         self.name = name
         self.host = host
+        self.port = 5060
         self.channels_in_use = 0
         self.channels_available = 10
 
@@ -73,6 +74,12 @@ class MockPBXCore:
         self.trunk_system = MockTrunkSystem()
         self.extension_registry = MagicMock()
         self.call_manager = MagicMock()
+        self.sip_server = MagicMock()
+        self.rtp_relay = MagicMock()
+        self.config = MockConfig({})
+
+    def _get_server_ip(self) -> str:
+        return "192.168.1.1"
 
 
 def test_zoom_phone_routing() -> None:
@@ -111,6 +118,8 @@ def test_zoom_phone_routing() -> None:
     assert zoom_trunk.channels_in_use == 1, "Should allocate channel"
 
 
+@patch("pbx.integrations.teams.MSAL_AVAILABLE", True)
+@patch("pbx.integrations.teams.msal", MagicMock(), create=True)
 def test_teams_direct_routing() -> None:
     """Test Microsoft Teams Direct Routing"""
 
@@ -158,6 +167,8 @@ def test_teams_direct_routing() -> None:
     assert result is True, "Should handle user without domain"
 
 
+@patch("pbx.integrations.outlook.MSAL_AVAILABLE", True)
+@patch("pbx.integrations.outlook.msal", MagicMock(), create=True)
 def test_outlook_meeting_reminder() -> None:
     """Test Outlook meeting reminder scheduling"""
 
@@ -211,23 +222,25 @@ def test_outlook_meeting_reminder() -> None:
 def test_active_directory_sync() -> None:
     """Test Active Directory user sync (already fully implemented)"""
 
-    config = {
-        "integrations": {
-            "active_directory": {
-                "enabled": False,  # Disabled to avoid needing real LDAP
-                "server": "ldaps://dc.test.local:636",
-                "base_dn": "DC=test,DC=local",
-                "bind_dn": "CN=svc,DC=test,DC=local",
-                "bind_password": "test",
+    config = MockConfig(
+        {
+            "integrations": {
+                "active_directory": {
+                    "enabled": False,  # Disabled to avoid needing real LDAP
+                    "server": "ldaps://dc.test.local:636",
+                    "base_dn": "DC=test,DC=local",
+                    "bind_dn": "CN=svc,DC=test,DC=local",
+                    "bind_password": "test",
+                }
             }
         }
-    }
+    )
 
     ad = ActiveDirectoryIntegration(config)
 
     # Test that methods exist and handle disabled state gracefully
     result = ad.sync_users()
-    assert result == 0, "Should return 0 when disabled"
+    assert result["synced_count"] == 0, "Should return synced_count 0 when disabled"
 
     result = ad.get_user_groups("testuser")
     assert result == [], "Should return empty list when disabled"
@@ -240,7 +253,7 @@ def test_integration_error_handling() -> None:
     """Test that integrations handle errors gracefully"""
 
     # Test with invalid/minimal config
-    config = {"integrations": {}}
+    config = MockConfig({"integrations": {}})
 
     zoom = ZoomIntegration(config)
     assert zoom.enabled is False, "Should be disabled with missing config"
@@ -258,4 +271,5 @@ def test_integration_error_handling() -> None:
     assert zoom.route_to_zoom_phone("123", "456") is False
     assert teams.route_call_to_teams("123", "456") is False
     assert outlook.send_meeting_reminder("user@test.com", "meet-123") is False
-    assert ad.sync_users() == 0
+    result = ad.sync_users()
+    assert result["synced_count"] == 0

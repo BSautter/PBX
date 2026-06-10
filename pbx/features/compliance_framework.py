@@ -449,7 +449,7 @@ class SOC2ComplianceEngine:
             self.logger.info(f"Registered SOC 2 control: {control_data['control_id']}")
             return True
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to register control: {e}")
             return False
 
@@ -503,7 +503,7 @@ class SOC2ComplianceEngine:
 
             return controls
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get controls: {e}")
             return []
 
@@ -539,7 +539,7 @@ class SOC2ComplianceEngine:
 
             return controls
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get controls by category: {e}")
             return []
 

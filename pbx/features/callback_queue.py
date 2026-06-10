@@ -183,7 +183,7 @@ class CallbackQueue:
             cursor.close()
             if rows:
                 self.logger.info(f"Loaded {len(rows)} active callbacks from database")
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Error loading callbacks from database: {e}")
 
     def _save_callback_to_database(self, callback_id: str) -> bool:
@@ -244,7 +244,7 @@ class CallbackQueue:
             self.database.connection.commit()
             cursor.close()
             return True
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Error saving callback to database: {e}")
             return False
 

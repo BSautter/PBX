@@ -100,7 +100,7 @@ class VoicemailBox:
                         self.logger.debug(
                             f"Loaded voicemail PIN hash from database for extension {extension_number}"
                         )
-            except (KeyError, TypeError, ValueError) as e:
+            except Exception as e:
                 self.logger.error(
                     f"Error loading voicemail PIN from database for extension {extension_number}: {e}"
                 )
@@ -249,7 +249,7 @@ class VoicemailBox:
                             ),
                         )
                         self.logger.info("✓ Transcription saved to database")
-                    except (KeyError, TypeError, ValueError) as e:
+                    except Exception as e:
                         self.logger.error(f"✗ Error saving transcription to database: {e}")
             else:
                 self.logger.warning(
@@ -281,7 +281,7 @@ class VoicemailBox:
                         self.logger.debug(
                             f"Found email address from database for extension {self.extension_number}"
                         )
-                except (KeyError, TypeError, ValueError) as e:
+                except Exception as e:
                     self.logger.error(f"Error getting extension from database: {e}")
 
             # Fallback to config file if not found in database
@@ -502,7 +502,7 @@ class VoicemailBox:
                         f"  Total: {len(self.messages)} messages ({unread_count} unread)"
                     )
                 return
-            except (KeyError, TypeError, ValueError) as e:
+            except Exception as e:
                 self.logger.error(f"✗ Error loading voicemail messages from database: {e}")
                 self.logger.warning("  Falling back to loading from file system")
                 # Fall back to loading from disk
@@ -579,7 +579,7 @@ class VoicemailBox:
             try:
                 enc = get_encryption()
                 return enc.verify_password(str(pin), self.pin_hash, self.pin_salt)
-            except (KeyError, TypeError, ValueError) as e:
+            except Exception as e:
                 self.logger.error(
                     f"Error verifying voicemail PIN hash for extension {self.extension_number}: {e}"
                 )

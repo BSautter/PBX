@@ -336,11 +336,11 @@ class TestVoicemailBoxGetDbPlaceholder:
         db = MagicMock()
         db.db_type = "sqlite"
         voicemail_box.database = db
-        assert voicemail_box._get_db_placeholder() == "?"
+        assert voicemail_box._get_db_placeholder() == "%s"
 
     def test_no_database_placeholder(self, voicemail_box) -> None:
         voicemail_box.database = None
-        assert voicemail_box._get_db_placeholder() == "?"
+        assert voicemail_box._get_db_placeholder() == "%s"
 
 
 @pytest.mark.unit
