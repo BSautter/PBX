@@ -163,9 +163,7 @@ class TestAutoAttendantInit:
 
     def test_init_db_tables_created(self, auto_attendant_with_db) -> None:
         db = auto_attendant_with_db.db
-        tables = db.fetch_all(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        tables = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         table_names = [t["name"] for t in tables]
         assert "auto_attendant_config" in table_names
         assert "auto_attendant_menu_options" in table_names
@@ -422,9 +420,7 @@ class TestAutoAttendantMenuItems:
         assert result is True
 
     def test_add_menu_item_voicemail(self, auto_attendant_with_db) -> None:
-        result = auto_attendant_with_db.add_menu_item(
-            "main", "3", "voicemail", "1001", "Voicemail"
-        )
+        result = auto_attendant_with_db.add_menu_item("main", "3", "voicemail", "1001", "Voicemail")
         assert result is True
 
     def test_add_menu_item_operator(self, auto_attendant_with_db) -> None:
@@ -433,9 +429,7 @@ class TestAutoAttendantMenuItems:
 
     def test_add_menu_item_submenu(self, auto_attendant_with_db) -> None:
         auto_attendant_with_db.create_menu("support", "main", "Support")
-        result = auto_attendant_with_db.add_menu_item(
-            "main", "3", "submenu", "support", "Support"
-        )
+        result = auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support")
         assert result is True
 
     def test_add_menu_item_invalid_type(self, auto_attendant) -> None:
