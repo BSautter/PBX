@@ -57,6 +57,47 @@ def auto_attendant(aa_config):
     return AutoAttendant(config=aa_config)
 
 
+class _MockDB:
+    """SQLite-backed mock for DatabaseBackend, translating %s -> ? for tests."""
+
+    def __init__(self, db_path):
+        import sqlite3
+
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.enabled = True
+
+    @staticmethod
+    def _convert(sql):
+        return sql.replace("%s", "?").replace(
+            "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT"
+        )
+
+    def execute(self, sql, params=None):
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        self.conn.commit()
+        return cursor.rowcount > 0 or cursor.description is not None
+
+    def fetch_one(self, sql, params=None):
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def fetch_all(self, sql, params=None):
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        return [dict(row) for row in cursor.fetchall()]
+
+
+@pytest.fixture
+def auto_attendant_with_db(aa_config, tmp_path):
+    from pbx.features.auto_attendant import AutoAttendant
+
+    mock_db = _MockDB(str(tmp_path / "test_aa.db"))
+    mock_pbx = MagicMock()
+    mock_pbx.database = mock_db
+    return AutoAttendant(config=aa_config, pbx_core=mock_pbx)
+
+
 # =============================================================================
 # AAState and DestinationType Enum Tests
 # =============================================================================
@@ -120,45 +161,26 @@ class TestAutoAttendantInit:
     def test_init_creates_audio_directory(self, auto_attendant) -> None:
         assert Path(auto_attendant.audio_path).exists()
 
-    def test_init_db_tables_created(self, aa_config) -> None:
-        from pbx.features.auto_attendant import AutoAttendant
+    def test_init_db_tables_created(self, auto_attendant_with_db) -> None:
+        db = auto_attendant_with_db.db
+        tables = db.fetch_all(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        table_names = [t["name"] for t in tables]
+        assert "auto_attendant_config" in table_names
+        assert "auto_attendant_menu_options" in table_names
+        assert "auto_attendant_menus" in table_names
+        assert "auto_attendant_menu_items" in table_names
 
-        mock_db = MagicMock()
-        mock_db.enabled = True
-        mock_db.fetch_one.return_value = None
-        mock_db.fetch_all.return_value = []
-
-        mock_pbx = MagicMock()
-        mock_pbx.database = mock_db
-
-        AutoAttendant(config=aa_config, pbx_core=mock_pbx)
-
-        create_stmts = [
-            call.args[0] for call in mock_db.execute.call_args_list if "CREATE TABLE" in str(call)
-        ]
-        table_sql = " ".join(create_stmts)
-        assert "auto_attendant_config" in table_sql
-        assert "auto_attendant_menu_options" in table_sql
-        assert "auto_attendant_menus" in table_sql
-        assert "auto_attendant_menu_items" in table_sql
-
-    def test_init_main_menu_created(self, aa_config) -> None:
-        from pbx.features.auto_attendant import AutoAttendant
-
-        mock_db = MagicMock()
-        mock_db.enabled = True
-        mock_db.fetch_one.return_value = None
-        mock_db.fetch_all.return_value = []
-
-        mock_pbx = MagicMock()
-        mock_pbx.database = mock_db
-
-        AutoAttendant(config=aa_config, pbx_core=mock_pbx)
-
-        insert_calls = [
-            str(call) for call in mock_db.execute.call_args_list if "INSERT" in str(call)
-        ]
-        assert any("auto_attendant_menus" in c and "main" in c for c in insert_calls)
+    def test_init_main_menu_created(self, auto_attendant_with_db) -> None:
+        db = auto_attendant_with_db.db
+        row = db.fetch_one(
+            "SELECT menu_id, menu_name FROM auto_attendant_menus WHERE menu_id = ?",
+            ("main",),
+        )
+        assert row is not None
+        assert row["menu_id"] == "main"
+        assert row["menu_name"] == "Main Menu"
 
     def test_init_loads_config_from_db_on_second_run(self, aa_config, tmp_db) -> None:
         from pbx.features.auto_attendant import AutoAttendant
@@ -279,117 +301,107 @@ class TestAutoAttendantLegacyMenuOptions:
 class TestAutoAttendantMenuManagement:
     """Tests for hierarchical menu management."""
 
-    def test_create_menu(self, auto_attendant) -> None:
-        mock_db = MagicMock()
-        mock_db.enabled = True
-        mock_db.fetch_one.return_value = None
-        auto_attendant.db = mock_db
-        result = auto_attendant.create_menu("support", "main", "Support Menu", "Press 1 for...")
+    def test_create_menu(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.create_menu(
+            "support", "main", "Support Menu", "Press 1 for..."
+        )
         assert result is True
 
-    def test_create_menu_with_audio_file(self, auto_attendant) -> None:
-        mock_db = MagicMock()
-        mock_db.enabled = True
-        mock_db.fetch_one.return_value = None
-        auto_attendant.db = mock_db
-        result = auto_attendant.create_menu(
+    def test_create_menu_with_audio_file(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.create_menu(
             "billing", "main", "Billing Menu", audio_file="/path/to/billing.wav"
         )
         assert result is True
 
-    def test_create_menu_duplicate(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.create_menu("support", "main", "Support Again")
+    def test_create_menu_duplicate(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.create_menu("support", "main", "Support Again")
         assert result is False
 
-    def test_create_menu_max_depth_exceeded(self, auto_attendant) -> None:
-        # Create a chain of 5 levels
-        auto_attendant.create_menu("l1", "main", "Level 1")
-        auto_attendant.create_menu("l2", "l1", "Level 2")
-        auto_attendant.create_menu("l3", "l2", "Level 3")
-        auto_attendant.create_menu("l4", "l3", "Level 4")
+    def test_create_menu_max_depth_exceeded(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("l1", "main", "Level 1")
+        auto_attendant_with_db.create_menu("l2", "l1", "Level 2")
+        auto_attendant_with_db.create_menu("l3", "l2", "Level 3")
+        auto_attendant_with_db.create_menu("l4", "l3", "Level 4")
 
-        # Level 5 should fail (depth >= 5)
-        result = auto_attendant.create_menu("l5", "l4", "Level 5")
+        result = auto_attendant_with_db.create_menu("l5", "l4", "Level 5")
         assert result is False
 
-    def test_create_menu_circular_reference(self, auto_attendant) -> None:
-        auto_attendant.create_menu("a", "main", "Menu A")
-        # Try to create a menu that would create a circular reference
-        result = auto_attendant.create_menu("main", "a", "Main under A")
-        # This tests the IntegrityError path since "main" already exists
+    def test_create_menu_circular_reference(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("a", "main", "Menu A")
+        result = auto_attendant_with_db.create_menu("main", "a", "Main under A")
         assert result is False
 
-    def test_would_create_circular_reference_self(self, auto_attendant) -> None:
-        result = auto_attendant._would_create_circular_reference("a", "a")
+    def test_would_create_circular_reference_self(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db._would_create_circular_reference("a", "a")
         assert result is True
 
-    def test_would_create_circular_reference_chain(self, auto_attendant) -> None:
+    def test_would_create_circular_reference_chain(self, auto_attendant_with_db) -> None:
         menus = {
             "b": {"parent_menu_id": "a"},
             "a": {"parent_menu_id": "main"},
             "main": {"parent_menu_id": None},
         }
-        auto_attendant.get_menu = menus.get
-        result = auto_attendant._would_create_circular_reference("main", "b")
+        auto_attendant_with_db.get_menu = menus.get
+        result = auto_attendant_with_db._would_create_circular_reference("main", "b")
         assert result is True
 
-    def test_would_not_create_circular_reference(self, auto_attendant) -> None:
-        auto_attendant.create_menu("a", "main", "A")
-        result = auto_attendant._would_create_circular_reference("c", "a")
+    def test_would_not_create_circular_reference(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("a", "main", "A")
+        result = auto_attendant_with_db._would_create_circular_reference("c", "a")
         assert result is False
 
-    def test_update_menu(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.update_menu("support", menu_name="Support Updated")
+    def test_update_menu(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.update_menu("support", menu_name="Support Updated")
         assert result is True
-        menu = auto_attendant.get_menu("support")
+        menu = auto_attendant_with_db.get_menu("support")
         assert menu["menu_name"] == "Support Updated"
 
-    def test_update_menu_prompt_text(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.update_menu("support", prompt_text="New prompt")
+    def test_update_menu_prompt_text(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.update_menu("support", prompt_text="New prompt")
         assert result is True
 
-    def test_update_menu_audio_file(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.update_menu("support", audio_file="/new/audio.wav")
+    def test_update_menu_audio_file(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.update_menu("support", audio_file="/new/audio.wav")
         assert result is True
 
-    def test_update_menu_nothing_to_update(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.update_menu("support")
-        assert result is True  # Nothing to update, returns True
-
-    def test_delete_menu(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.delete_menu("support")
+    def test_update_menu_nothing_to_update(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.update_menu("support")
         assert result is True
 
-    def test_delete_main_menu_forbidden(self, auto_attendant) -> None:
-        result = auto_attendant.delete_menu("main")
+    def test_delete_menu(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.delete_menu("support")
+        assert result is True
+
+    def test_delete_main_menu_forbidden(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.delete_menu("main")
         assert result is False
 
-    def test_delete_menu_with_references(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support")
-        result = auto_attendant.delete_menu("support")
+    def test_delete_menu_with_references(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support")
+        result = auto_attendant_with_db.delete_menu("support")
         assert result is False
 
-    def test_get_menu(self, auto_attendant) -> None:
-        menu = auto_attendant.get_menu("main")
+    def test_get_menu(self, auto_attendant_with_db) -> None:
+        menu = auto_attendant_with_db.get_menu("main")
         assert menu is not None
         assert menu["menu_id"] == "main"
         assert menu["menu_name"] == "Main Menu"
 
-    def test_get_menu_nonexistent(self, auto_attendant) -> None:
-        menu = auto_attendant.get_menu("nonexistent")
+    def test_get_menu_nonexistent(self, auto_attendant_with_db) -> None:
+        menu = auto_attendant_with_db.get_menu("nonexistent")
         assert menu is None
 
-    def test_list_menus(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        menus = auto_attendant.list_menus()
-        assert len(menus) >= 2  # main + support
+    def test_list_menus(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        menus = auto_attendant_with_db.list_menus()
+        assert len(menus) >= 2
         menu_ids = [m["menu_id"] for m in menus]
         assert "main" in menu_ids
         assert "support" in menu_ids
@@ -399,49 +411,55 @@ class TestAutoAttendantMenuManagement:
 class TestAutoAttendantMenuItems:
     """Tests for menu item management."""
 
-    def test_add_menu_item_extension(self, auto_attendant) -> None:
-        result = auto_attendant.add_menu_item("main", "1", "extension", "1001", "Sales")
+    def test_add_menu_item_extension(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.add_menu_item("main", "1", "extension", "1001", "Sales")
         assert result is True
 
-    def test_add_menu_item_queue(self, auto_attendant) -> None:
-        result = auto_attendant.add_menu_item("main", "2", "queue", "sales_queue", "Sales Queue")
+    def test_add_menu_item_queue(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.add_menu_item(
+            "main", "2", "queue", "sales_queue", "Sales Queue"
+        )
         assert result is True
 
-    def test_add_menu_item_voicemail(self, auto_attendant) -> None:
-        result = auto_attendant.add_menu_item("main", "3", "voicemail", "1001", "Voicemail")
+    def test_add_menu_item_voicemail(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.add_menu_item(
+            "main", "3", "voicemail", "1001", "Voicemail"
+        )
         assert result is True
 
-    def test_add_menu_item_operator(self, auto_attendant) -> None:
-        result = auto_attendant.add_menu_item("main", "0", "operator", "1001", "Operator")
+    def test_add_menu_item_operator(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.add_menu_item("main", "0", "operator", "1001", "Operator")
         assert result is True
 
-    def test_add_menu_item_submenu(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support")
+    def test_add_menu_item_submenu(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db.add_menu_item(
+            "main", "3", "submenu", "support", "Support"
+        )
         assert result is True
 
     def test_add_menu_item_invalid_type(self, auto_attendant) -> None:
         result = auto_attendant.add_menu_item("main", "5", "invalid_type", "1001")
         assert result is False
 
-    def test_add_menu_item_submenu_nonexistent(self, auto_attendant) -> None:
-        result = auto_attendant.add_menu_item("main", "5", "submenu", "nonexistent")
+    def test_add_menu_item_submenu_nonexistent(self, auto_attendant_with_db) -> None:
+        result = auto_attendant_with_db.add_menu_item("main", "5", "submenu", "nonexistent")
         assert result is False
 
-    def test_remove_menu_item(self, auto_attendant) -> None:
-        auto_attendant.add_menu_item("main", "1", "extension", "1001", "Sales")
-        result = auto_attendant.remove_menu_item("main", "1")
+    def test_remove_menu_item(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.add_menu_item("main", "1", "extension", "1001", "Sales")
+        result = auto_attendant_with_db.remove_menu_item("main", "1")
         assert result is True
 
-    def test_get_menu_items(self, auto_attendant) -> None:
-        auto_attendant.add_menu_item("main", "1", "extension", "1001", "Sales")
-        auto_attendant.add_menu_item("main", "2", "extension", "1002", "Support")
-        items = auto_attendant.get_menu_items("main")
+    def test_get_menu_items(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.add_menu_item("main", "1", "extension", "1001", "Sales")
+        auto_attendant_with_db.add_menu_item("main", "2", "extension", "1002", "Support")
+        items = auto_attendant_with_db.get_menu_items("main")
         assert len(items) >= 2
 
-    def test_get_menu_items_empty(self, auto_attendant) -> None:
-        auto_attendant.create_menu("empty_menu", "main", "Empty")
-        items = auto_attendant.get_menu_items("empty_menu")
+    def test_get_menu_items_empty(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("empty_menu", "main", "Empty")
+        items = auto_attendant_with_db.get_menu_items("empty_menu")
         assert items == []
 
 
@@ -449,18 +467,18 @@ class TestAutoAttendantMenuItems:
 class TestAutoAttendantMenuTree:
     """Tests for menu tree retrieval."""
 
-    def test_get_menu_tree_basic(self, auto_attendant) -> None:
-        tree = auto_attendant.get_menu_tree()
+    def test_get_menu_tree_basic(self, auto_attendant_with_db) -> None:
+        tree = auto_attendant_with_db.get_menu_tree()
         assert tree is not None
         assert tree["menu_id"] == "main"
         assert "items" in tree
 
-    def test_get_menu_tree_with_submenu(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support")
-        auto_attendant.add_menu_item("support", "1", "extension", "2001", "Tech Support")
+    def test_get_menu_tree_with_submenu(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support")
+        auto_attendant_with_db.add_menu_item("support", "1", "extension", "2001", "Tech Support")
 
-        tree = auto_attendant.get_menu_tree()
+        tree = auto_attendant_with_db.get_menu_tree()
         submenu_item = next(
             (i for i in tree["items"] if i.get("destination_type") == "submenu"), None
         )
@@ -475,12 +493,12 @@ class TestAutoAttendantMenuTree:
         result = auto_attendant.get_menu_tree(menu_id="nonexistent")
         assert result is None
 
-    def test_get_menu_depth(self, auto_attendant) -> None:
-        assert auto_attendant._get_menu_depth("main") == 0
-        auto_attendant.create_menu("l1", "main", "L1")
-        assert auto_attendant._get_menu_depth("l1") == 1
-        auto_attendant.create_menu("l2", "l1", "L2")
-        assert auto_attendant._get_menu_depth("l2") == 2
+    def test_get_menu_depth(self, auto_attendant_with_db) -> None:
+        assert auto_attendant_with_db._get_menu_depth("main") == 0
+        auto_attendant_with_db.create_menu("l1", "main", "L1")
+        assert auto_attendant_with_db._get_menu_depth("l1") == 1
+        auto_attendant_with_db.create_menu("l2", "l1", "L2")
+        assert auto_attendant_with_db._get_menu_depth("l2") == 2
 
     def test_get_menu_depth_safety_limit(self, auto_attendant) -> None:
         depth = auto_attendant._get_menu_depth("main", current_depth=11)
