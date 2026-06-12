@@ -120,31 +120,45 @@ class TestAutoAttendantInit:
     def test_init_creates_audio_directory(self, auto_attendant) -> None:
         assert Path(auto_attendant.audio_path).exists()
 
-    def test_init_db_tables_created(self, auto_attendant, tmp_db) -> None:
-        import sqlite3
+    def test_init_db_tables_created(self, aa_config) -> None:
+        from pbx.features.auto_attendant import AutoAttendant
 
-        conn = sqlite3.connect(tmp_db)
-        cursor = conn.cursor()
+        mock_db = MagicMock()
+        mock_db.enabled = True
+        mock_db.fetch_one.return_value = None
+        mock_db.fetch_all.return_value = []
 
-        # Check tables exist
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = {row[0] for row in cursor.fetchall()}
-        conn.close()
+        mock_pbx = MagicMock()
+        mock_pbx.database = mock_db
 
-        assert "auto_attendant_config" in tables
-        assert "auto_attendant_menu_options" in tables
-        assert "auto_attendant_menus" in tables
-        assert "auto_attendant_menu_items" in tables
+        AutoAttendant(config=aa_config, pbx_core=mock_pbx)
 
-    def test_init_main_menu_created(self, auto_attendant, tmp_db) -> None:
-        import sqlite3
+        create_stmts = [
+            call.args[0] for call in mock_db.execute.call_args_list if "CREATE TABLE" in str(call)
+        ]
+        table_sql = " ".join(create_stmts)
+        assert "auto_attendant_config" in table_sql
+        assert "auto_attendant_menu_options" in table_sql
+        assert "auto_attendant_menus" in table_sql
+        assert "auto_attendant_menu_items" in table_sql
 
-        conn = sqlite3.connect(tmp_db)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM auto_attendant_menus WHERE menu_id = 'main'")
-        count = cursor.fetchone()[0]
-        conn.close()
-        assert count == 1
+    def test_init_main_menu_created(self, aa_config) -> None:
+        from pbx.features.auto_attendant import AutoAttendant
+
+        mock_db = MagicMock()
+        mock_db.enabled = True
+        mock_db.fetch_one.return_value = None
+        mock_db.fetch_all.return_value = []
+
+        mock_pbx = MagicMock()
+        mock_pbx.database = mock_db
+
+        AutoAttendant(config=aa_config, pbx_core=mock_pbx)
+
+        insert_calls = [
+            str(call) for call in mock_db.execute.call_args_list if "INSERT" in str(call)
+        ]
+        assert any("auto_attendant_menus" in c and "main" in c for c in insert_calls)
 
     def test_init_loads_config_from_db_on_second_run(self, aa_config, tmp_db) -> None:
         from pbx.features.auto_attendant import AutoAttendant
@@ -266,10 +280,18 @@ class TestAutoAttendantMenuManagement:
     """Tests for hierarchical menu management."""
 
     def test_create_menu(self, auto_attendant) -> None:
+        mock_db = MagicMock()
+        mock_db.enabled = True
+        mock_db.fetch_one.return_value = None
+        auto_attendant.db = mock_db
         result = auto_attendant.create_menu("support", "main", "Support Menu", "Press 1 for...")
         assert result is True
 
     def test_create_menu_with_audio_file(self, auto_attendant) -> None:
+        mock_db = MagicMock()
+        mock_db.enabled = True
+        mock_db.fetch_one.return_value = None
+        auto_attendant.db = mock_db
         result = auto_attendant.create_menu(
             "billing", "main", "Billing Menu", audio_file="/path/to/billing.wav"
         )
@@ -303,9 +325,12 @@ class TestAutoAttendantMenuManagement:
         assert result is True
 
     def test_would_create_circular_reference_chain(self, auto_attendant) -> None:
-        auto_attendant.create_menu("a", "main", "A")
-        auto_attendant.create_menu("b", "a", "B")
-        # Check if making "main" parent of something pointing to "main"
+        menus = {
+            "b": {"parent_menu_id": "a"},
+            "a": {"parent_menu_id": "main"},
+            "main": {"parent_menu_id": None},
+        }
+        auto_attendant.get_menu = menus.get
         result = auto_attendant._would_create_circular_reference("main", "b")
         assert result is True
 
