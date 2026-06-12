@@ -328,7 +328,9 @@ def test_new_integration_implementations() -> None:
 
     # Test Active Directory - sync_users implementation
     sync_result = ad.sync_users()
-    assert sync_result == 0, "Should return 0 when integration is disabled or auto_provision is of"
+    assert sync_result["synced_count"] == 0, (
+        "Should sync 0 users when integration is disabled or auto_provision is off"
+    )
 
 
 def test_database_backend() -> None:
