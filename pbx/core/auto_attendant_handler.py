@@ -217,6 +217,7 @@ class AutoAttendantHandler:
 
         pbx = self.pbx_core
 
+        transferred = False
         try:
             # Wait for RTP to stabilize
             time.sleep(0.5)
@@ -263,7 +264,6 @@ class AutoAttendantHandler:
 
             pbx.logger.info(f"[Auto Attendant] Starting audio playback for call {call_id}")
             audio_played: bool = False
-            transferred: bool = False
 
             if audio_file and Path(audio_file).exists():
                 pbx.logger.info(f"[Auto Attendant] Playing welcome file: {audio_file}")
