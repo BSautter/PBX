@@ -357,11 +357,13 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import BiometricStatus, VoiceBiometrics
 
         vb = VoiceBiometrics()
-        vb._extract_voice_features = MagicMock(side_effect=[
-            {"energy": 0.5, "mfcc_mean": 0.1},
-            {"energy": 0.6, "mfcc_mean": 0.2},
-            {"energy": 0.7, "mfcc_mean": 0.3},
-        ])
+        vb._extract_voice_features = MagicMock(
+            side_effect=[
+                {"energy": 0.5, "mfcc_mean": 0.1},
+                {"energy": 0.6, "mfcc_mean": 0.2},
+                {"energy": 0.7, "mfcc_mean": 0.3},
+            ]
+        )
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
 
@@ -410,11 +412,13 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
-        vb._extract_voice_features = MagicMock(side_effect=[
-            {"energy": 0.5, "mfcc_mean": 0.1},
-            {"energy": 0.6, "mfcc_mean": 0.2},
-            {"energy": 0.7, "mfcc_mean": 0.3},
-        ])
+        vb._extract_voice_features = MagicMock(
+            side_effect=[
+                {"energy": 0.5, "mfcc_mean": 0.1},
+                {"energy": 0.6, "mfcc_mean": 0.2},
+                {"energy": 0.7, "mfcc_mean": 0.3},
+            ]
+        )
         vb.db = MagicMock()
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")

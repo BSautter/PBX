@@ -27,9 +27,24 @@ def test_clear_all_phones() -> None:
     db.fetch_all.side_effect = [
         # list_all returns 3 phones
         [
-            {"id": 1, "extension_number": "1001", "mac_address": "001565123456", "ip_address": "192.168.1.100"},
-            {"id": 2, "extension_number": "1002", "mac_address": "001565123457", "ip_address": "192.168.1.101"},
-            {"id": 3, "extension_number": "1003", "mac_address": None, "ip_address": "192.168.1.102"},
+            {
+                "id": 1,
+                "extension_number": "1001",
+                "mac_address": "001565123456",
+                "ip_address": "192.168.1.100",
+            },
+            {
+                "id": 2,
+                "extension_number": "1002",
+                "mac_address": "001565123457",
+                "ip_address": "192.168.1.101",
+            },
+            {
+                "id": 3,
+                "extension_number": "1003",
+                "mac_address": None,
+                "ip_address": "192.168.1.102",
+            },
         ],
         # list_all after clear returns 0 phones
         [],
@@ -91,7 +106,14 @@ def test_register_after_clear() -> None:
         # list_all after clear returns 0
         [],
         # list_all after re-register returns 1
-        [{"id": 3, "extension_number": "1003", "mac_address": "001565123458", "ip_address": "192.168.1.102"}],
+        [
+            {
+                "id": 3,
+                "extension_number": "1003",
+                "mac_address": "001565123458",
+                "ip_address": "192.168.1.102",
+            }
+        ],
     ]
 
     # Clear all
@@ -131,8 +153,18 @@ def test_pbx_preserves_phones_on_boot() -> None:
     db.fetch_all.side_effect = [
         # list_all returns 2 phones (preserved after boot)
         [
-            {"id": 1, "extension_number": "1001", "mac_address": "001565123456", "ip_address": "192.168.1.100"},
-            {"id": 2, "extension_number": "1002", "mac_address": "001565123457", "ip_address": "192.168.1.101"},
+            {
+                "id": 1,
+                "extension_number": "1001",
+                "mac_address": "001565123456",
+                "ip_address": "192.168.1.100",
+            },
+            {
+                "id": 2,
+                "extension_number": "1002",
+                "mac_address": "001565123457",
+                "ip_address": "192.168.1.101",
+            },
         ],
     ]
 

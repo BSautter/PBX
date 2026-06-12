@@ -345,9 +345,9 @@ class TestSSOAuthServiceOAuth:
 
         # First urlopen call: token exchange -> returns access_token
         token_resp = MagicMock()
-        token_resp.read.return_value = json.dumps(
-            {"access_token": "test_token_123"}
-        ).encode("utf-8")
+        token_resp.read.return_value = json.dumps({"access_token": "test_token_123"}).encode(
+            "utf-8"
+        )
         token_resp.__enter__ = lambda s: s
         token_resp.__exit__ = MagicMock(return_value=False)
 

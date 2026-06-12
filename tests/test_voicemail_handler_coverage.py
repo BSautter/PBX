@@ -715,7 +715,8 @@ class TestCompleteVoicemailRecording:
 
         recorder.stop.assert_called_once()
         pbx._build_wav_file.assert_called_once_with(
-            b"\x00" * 1000, codec_payload_type=recorder.detected_codec,
+            b"\x00" * 1000,
+            codec_payload_type=recorder.detected_codec,
         )
         pbx.voicemail_system.save_message.assert_called_once_with(
             extension_number=call_obj.to_extension,

@@ -1230,9 +1230,7 @@ class TestHandleSIPMessageMethod:
         server._handle_sip_message_method(msg, ADDR)
 
         # Source returns 503 Service Unavailable when pbx_core is None
-        server._send_response.assert_called_once_with(
-            503, "Service Unavailable", msg, ADDR
-        )
+        server._send_response.assert_called_once_with(503, "Service Unavailable", msg, ADDR)
 
     @patch("pbx.sip.server.get_logger")
     def test_message_empty_body(self, mock_get_logger: MagicMock) -> None:
@@ -1278,9 +1276,7 @@ class TestHandlePrack:
         server._handle_prack(msg, ADDR)
 
         # Source returns 400 when RAck header is missing
-        server._send_response.assert_called_once_with(
-            400, "Bad Request - Missing RAck", msg, ADDR
-        )
+        server._send_response.assert_called_once_with(400, "Bad Request - Missing RAck", msg, ADDR)
 
 
 # ===========================================================================
