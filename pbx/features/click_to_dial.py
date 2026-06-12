@@ -275,6 +275,6 @@ class ClickToDialEngine:
 
             return configs
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get all click-to-dial configs: {e}")
             return []

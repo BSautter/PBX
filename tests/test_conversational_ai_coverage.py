@@ -200,7 +200,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_available_all_data_present(
@@ -224,7 +224,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_download_punkt_on_lookup_error(
@@ -249,7 +249,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_download_stopwords_on_lookup_error(
@@ -273,7 +273,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_download_wordnet_on_lookup_error(
@@ -297,7 +297,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_all_three_downloads_needed(
@@ -320,7 +320,7 @@ class TestNLTKInitialization:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True, side_effect=Exception("init fail"))
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_nltk_init_exception_falls_back(
@@ -753,7 +753,7 @@ class TestDetectIntent:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.word_tokenize", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
@@ -778,7 +778,7 @@ class TestDetectIntent:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.word_tokenize", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
@@ -803,7 +803,7 @@ class TestDetectIntent:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.word_tokenize", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
@@ -1632,7 +1632,7 @@ class TestTokenizeWithNLTK:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.word_tokenize", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
@@ -1661,7 +1661,7 @@ class TestTokenizeWithNLTK:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.word_tokenize", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
@@ -1761,7 +1761,7 @@ class TestGetStatistics:
 
     @patch(f"{MODULE}.get_logger")
     @patch(f"{MODULE}.nltk", create=True)
-    @patch(f"{MODULE}.stopwords", create=True)
+    @patch(f"{MODULE}.stopwords", new_callable=MagicMock, create=True)
     @patch(f"{MODULE}.WordNetLemmatizer", create=True)
     @patch(f"{MODULE}.NLTK_AVAILABLE", True)
     def test_statistics_nltk_available_true(
