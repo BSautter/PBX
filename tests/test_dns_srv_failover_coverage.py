@@ -597,8 +597,8 @@ class TestDNSSRVFailoverSelectServer:
             SRVRecord(priority=10, weight=50, port=5060, target="server-a.example.com"),
             SRVRecord(priority=10, weight=50, port=5060, target="server-b.example.com"),
         ]
-        # rand=50, cumulative after A=50, 50 <= 50 -> picks A
-        mock_random.randint.return_value = 50
+        # rand=49, cumulative after A=50, 49 < 50 -> picks A
+        mock_random.randint.return_value = 49
 
         selected = self.failover._weighted_selection(records)
 

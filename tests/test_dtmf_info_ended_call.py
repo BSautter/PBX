@@ -6,11 +6,17 @@ This test validates that DTMF INFO messages received for calls that have
 already ended are handled gracefully without producing warnings.
 """
 
+import io
+import logging
+from unittest.mock import patch
+
 from pbx.core.call import CallState
 from pbx.core.pbx import PBXCore
+from pbx.utils.logger import get_logger
 
 
-def test_dtmf_info_for_ended_call_no_warning() -> None:
+@patch("pbx.core.pbx.FeatureInitializer.initialize")
+def test_dtmf_info_for_ended_call_no_warning(_mock_init) -> None:
     """
     Test that DTMF INFO for ended calls doesn't produce warnings
 
@@ -45,9 +51,6 @@ def test_dtmf_info_for_ended_call_no_warning() -> None:
 
     # Now send DTMF INFO for the ended call
     # This should not produce a WARNING, only a DEBUG message
-    import logging
-
-    from pbx.utils.logger import get_logger
 
     # Capture log output
     logger = get_logger()
@@ -57,8 +60,6 @@ def test_dtmf_info_for_ended_call_no_warning() -> None:
     logger.setLevel(logging.DEBUG)
 
     # Create a handler to capture logs
-    import io
-
     log_capture = io.StringIO()
     handler = logging.StreamHandler(log_capture)
     handler.setLevel(logging.DEBUG)
@@ -90,7 +91,8 @@ def test_dtmf_info_for_ended_call_no_warning() -> None:
         assert "WARNING" not in line, f"Found WARNING in DTMF log line: {line}"
 
 
-def test_dtmf_info_race_condition() -> None:
+@patch("pbx.core.pbx.FeatureInitializer.initialize")
+def test_dtmf_info_race_condition(_mock_init) -> None:
     """
     Test race condition where DTMF INFO arrives during call teardown
     """
