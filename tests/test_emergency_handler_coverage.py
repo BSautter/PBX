@@ -494,7 +494,7 @@ class TestHandleEmergencyCall:
     def test_fallback_port_when_rtp_none(
         self, mock_sip_builder, mock_sdp_builder, mock_sdp_session
     ) -> None:
-        """When rtp_ports is None, port 10000 should be used as fallback."""
+        """When rtp_ports is None, call is ended and False returned."""
         pbx = _make_pbx_core()
         handler = EmergencyHandler(pbx)
         message = _make_message(with_body=False)
@@ -507,14 +507,8 @@ class TestHandleEmergencyCall:
         result = handler.handle_emergency_call(
             "1001", "911", "call-1", message, ("192.168.1.10", 5060)
         )
-        assert result is True
-        # SDPBuilder should be called with port 10000
-        mock_sdp_builder.build_audio_sdp.assert_called_once()
-        sdp_call = mock_sdp_builder.build_audio_sdp.call_args
-        assert (
-            sdp_call.kwargs.get("local_port", sdp_call[0][1] if len(sdp_call[0]) > 1 else None)
-            is not None
-        )
+        assert result is False
+        pbx.cdr_system.end_record.assert_called_once()
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
