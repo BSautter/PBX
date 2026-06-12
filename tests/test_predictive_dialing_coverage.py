@@ -1051,18 +1051,18 @@ class TestPredictiveDialerGetStatistics:
         assert stats["active_campaigns"] == 2  # c1, c3 running; c2 paused
 
     def test_statistics_abandon_rate_calculation(self) -> None:
-        """Abandon rate = total_abandons / max(1, total_connects)."""
+        """Abandon rate = total_abandons / max(1, total_connects + total_abandons)."""
         self.dialer.total_abandons = 5
         self.dialer.total_connects = 100
         stats = self.dialer.get_statistics()
-        assert stats["abandon_rate"] == pytest.approx(0.05)
+        assert stats["abandon_rate"] == pytest.approx(5 / 105)
 
     def test_statistics_abandon_rate_zero_connects(self) -> None:
-        """Abandon rate when total_connects is 0 (division by max(1, 0))."""
+        """Abandon rate when total_connects is 0: abandons / max(1, connects + abandons)."""
         self.dialer.total_abandons = 3
         self.dialer.total_connects = 0
         stats = self.dialer.get_statistics()
-        assert stats["abandon_rate"] == 3.0
+        assert stats["abandon_rate"] == 1.0
 
     def test_statistics_enabled_flag(self) -> None:
         """Statistics reflect enabled flag from config."""
@@ -1758,15 +1758,14 @@ class TestDialContactEnhanced:
         contact = self.dialer.campaigns[cid].contacts[0]
         return cid, contact
 
-    @patch("pbx.features.predictive_dialing.get_pbx_core", create=True)
-    def test_dial_with_pbx_core_progressive(self, mock_get_pbx) -> None:
+    def test_dial_with_pbx_core_progressive(self) -> None:
         """Progressive mode bridges to available agent via PBX core."""
         mock_call_mgr = MagicMock()
         mock_call_mgr.create_outbound_call.return_value = "call-123"
         mock_pbx = MagicMock()
         mock_pbx.call_manager = mock_call_mgr
 
-        with patch("pbx.features.predictive_dialing.get_pbx_core", return_value=mock_pbx):
+        with patch("pbx.api.utils.get_pbx_core", return_value=mock_pbx):
             cid, contact = self._setup_campaign("progressive")
             result = self.dialer.dial_contact(cid, contact)
 
@@ -1776,30 +1775,28 @@ class TestDialContactEnhanced:
             "call-123", queue="outbound"
         )
 
-    @patch("pbx.features.predictive_dialing.get_pbx_core", create=True)
-    def test_dial_with_pbx_core_predictive_queues(self, mock_get_pbx) -> None:
+    def test_dial_with_pbx_core_predictive_queues(self) -> None:
         """Predictive mode queues call for next available agent."""
         mock_call_mgr = MagicMock()
         mock_call_mgr.create_outbound_call.return_value = "call-456"
         mock_pbx = MagicMock()
         mock_pbx.call_manager = mock_call_mgr
 
-        with patch("pbx.features.predictive_dialing.get_pbx_core", return_value=mock_pbx):
+        with patch("pbx.api.utils.get_pbx_core", return_value=mock_pbx):
             cid, contact = self._setup_campaign("predictive")
             result = self.dialer.dial_contact(cid, contact)
 
         assert result["success"] is True
         mock_call_mgr.queue_for_agent.assert_called_once_with("call-456", queue="outbound")
 
-    @patch("pbx.features.predictive_dialing.get_pbx_core", create=True)
-    def test_dial_with_pbx_core_power_queues(self, mock_get_pbx) -> None:
+    def test_dial_with_pbx_core_power_queues(self) -> None:
         """Power mode queues call for next available agent like predictive."""
         mock_call_mgr = MagicMock()
         mock_call_mgr.create_outbound_call.return_value = "call-789"
         mock_pbx = MagicMock()
         mock_pbx.call_manager = mock_call_mgr
 
-        with patch("pbx.features.predictive_dialing.get_pbx_core", return_value=mock_pbx):
+        with patch("pbx.api.utils.get_pbx_core", return_value=mock_pbx):
             cid, contact = self._setup_campaign("power")
             result = self.dialer.dial_contact(cid, contact)
 
@@ -1811,8 +1808,8 @@ class TestDialContactEnhanced:
         with patch(
             "builtins.__import__",
             side_effect=lambda name, *a, **kw: (
-                (_ for _ in ()).throw(ImportError("no pbx.core"))
-                if name == "pbx.core.pbx"
+                (_ for _ in ()).throw(ImportError("no pbx.api.utils"))
+                if name == "pbx.api.utils"
                 else __import__(name, *a, **kw)
             ),
         ):

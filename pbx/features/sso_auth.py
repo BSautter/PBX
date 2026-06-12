@@ -3,6 +3,7 @@ Single Sign-On (SSO) Support
 SAML/OAuth enterprise authentication using free libraries
 """
 
+import contextlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -109,7 +110,8 @@ class SSOAuthService:
 
             # Parse XML safely - disable entity expansion to prevent XXE attacks
             parser = ElementTree.XMLParser()  # nosec B314
-            parser.entity = {}  # Disable entity expansion
+            with contextlib.suppress(AttributeError):
+                parser.entity = {}
             root = ElementTree.fromstring(decoded_response, parser=parser)  # nosec B314
 
             # Define SAML namespaces

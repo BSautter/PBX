@@ -310,7 +310,7 @@ class TestPlaybackVoicemails:
     def test_error_ending_call_during_cleanup(self, mock_time) -> None:
         """If end_call raises during cleanup, the error should be logged."""
         pbx = _make_pbx_core()
-        pbx.end_call.side_effect = RuntimeError("cannot end")
+        pbx.end_call.side_effect = ValueError("cannot end")
         handler = VoicemailHandler(pbx)
         call_obj = _make_call()
         call_obj.caller_rtp = None
@@ -714,7 +714,9 @@ class TestCompleteVoicemailRecording:
         handler.complete_voicemail_recording("call-1")
 
         recorder.stop.assert_called_once()
-        pbx._build_wav_file.assert_called_once_with(b"\x00" * 1000)
+        pbx._build_wav_file.assert_called_once_with(
+            b"\x00" * 1000, codec_payload_type=recorder.detected_codec,
+        )
         pbx.voicemail_system.save_message.assert_called_once_with(
             extension_number=call_obj.to_extension,
             caller_id=call_obj.from_extension,

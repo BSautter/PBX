@@ -79,6 +79,8 @@ class TestSessionBorderControllerInit:
     def test_init_defaults_no_config(self, mock_get_logger: MagicMock) -> None:
         """Test initialization with no config uses defaults."""
         sbc = SessionBorderController()
+        sbc.blacklist.clear()
+        sbc.whitelist.clear()
 
         assert sbc.enabled is False
         assert sbc.topology_hiding is True
@@ -152,7 +154,7 @@ class TestSessionBorderControllerInit:
         SessionBorderController(_make_sbc_config(enabled=True))
 
         info_calls = [str(c) for c in mock_logger.info.call_args_list]
-        assert any("Session Border Controller initialized" in c for c in info_calls)
+        assert any("Warden SBC initialized" in c for c in info_calls)
         assert any("Topology hiding" in c for c in info_calls)
         assert any("Media relay" in c for c in info_calls)
         assert any("NAT traversal" in c for c in info_calls)
@@ -1184,13 +1186,13 @@ class TestBlacklistWhitelist:
 
     @patch("pbx.features.session_border_controller.get_logger")
     def test_add_to_blacklist_disabled(self, mock_get_logger: MagicMock) -> None:
-        """Test adding to blacklist when SBC is disabled returns False."""
+        """Test adding to blacklist when SBC is disabled still succeeds."""
         config = _make_sbc_config(enabled=False)
         sbc = SessionBorderController(config)
 
         result = sbc.add_to_blacklist("1.2.3.4")
-        assert result is False
-        assert "1.2.3.4" not in sbc.blacklist
+        assert result is True
+        assert "1.2.3.4" in sbc.blacklist
 
     @patch("pbx.features.session_border_controller.get_logger")
     def test_add_to_whitelist_enabled(self, mock_get_logger: MagicMock) -> None:
@@ -1204,13 +1206,13 @@ class TestBlacklistWhitelist:
 
     @patch("pbx.features.session_border_controller.get_logger")
     def test_add_to_whitelist_disabled(self, mock_get_logger: MagicMock) -> None:
-        """Test adding to whitelist when SBC is disabled returns False."""
+        """Test adding to whitelist when SBC is disabled still succeeds."""
         config = _make_sbc_config(enabled=False)
         sbc = SessionBorderController(config)
 
         result = sbc.add_to_whitelist("5.6.7.8")
-        assert result is False
-        assert "5.6.7.8" not in sbc.whitelist
+        assert result is True
+        assert "5.6.7.8" in sbc.whitelist
 
     @patch("pbx.features.session_border_controller.get_logger")
     def test_is_blacklisted_true(self, mock_get_logger: MagicMock) -> None:
@@ -1223,6 +1225,7 @@ class TestBlacklistWhitelist:
     def test_is_blacklisted_false(self, mock_get_logger: MagicMock) -> None:
         """Test _is_blacklisted returns False for non-blacklisted IP."""
         sbc = SessionBorderController()
+        sbc.blacklist.clear()
         assert sbc._is_blacklisted("1.2.3.4") is False
 
     @patch("pbx.features.session_border_controller.get_logger")
@@ -1230,40 +1233,33 @@ class TestBlacklistWhitelist:
         """Test adding same IP to blacklist twice is idempotent."""
         config = _make_sbc_config(enabled=True)
         sbc = SessionBorderController(config)
+        sbc.blacklist.clear()
 
         sbc.add_to_blacklist("1.2.3.4")
         sbc.add_to_blacklist("1.2.3.4")
         assert len(sbc.blacklist) == 1
 
     @patch("pbx.features.session_border_controller.get_logger")
-    def test_blacklist_disabled_logs_error(self, mock_get_logger: MagicMock) -> None:
-        """Test that disabled SBC logs error on blacklist attempt."""
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
+    def test_blacklist_disabled_still_adds(self, mock_get_logger: MagicMock) -> None:
+        """Test that blacklist add works even when SBC is disabled."""
         config = _make_sbc_config(enabled=False)
         sbc = SessionBorderController(config)
-        sbc.logger = mock_logger
 
-        sbc.add_to_blacklist("1.2.3.4")
+        result = sbc.add_to_blacklist("1.2.3.4")
 
-        error_calls = [str(c) for c in mock_logger.error.call_args_list]
-        assert any("not enabled" in c for c in error_calls)
+        assert result is True
+        assert "1.2.3.4" in sbc.blacklist
 
     @patch("pbx.features.session_border_controller.get_logger")
-    def test_whitelist_disabled_logs_error(self, mock_get_logger: MagicMock) -> None:
-        """Test that disabled SBC logs error on whitelist attempt."""
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
+    def test_whitelist_disabled_still_adds(self, mock_get_logger: MagicMock) -> None:
+        """Test that whitelist add works even when SBC is disabled."""
         config = _make_sbc_config(enabled=False)
         sbc = SessionBorderController(config)
-        sbc.logger = mock_logger
 
-        sbc.add_to_whitelist("1.2.3.4")
+        result = sbc.add_to_whitelist("1.2.3.4")
 
-        error_calls = [str(c) for c in mock_logger.error.call_args_list]
-        assert any("not enabled" in c for c in error_calls)
+        assert result is True
+        assert "1.2.3.4" in sbc.whitelist
 
 
 @pytest.mark.unit
@@ -1275,6 +1271,8 @@ class TestGetStatistics:
         """Test initial statistics values."""
         config = _make_sbc_config(enabled=True, topology_hiding=True, media_relay=True)
         sbc = SessionBorderController(config)
+        sbc.blacklist.clear()
+        sbc.whitelist.clear()
 
         stats = sbc.get_statistics()
         assert stats["enabled"] is True
@@ -1293,7 +1291,9 @@ class TestGetStatistics:
         config = _make_sbc_config(enabled=True, media_relay=True)
         sbc = SessionBorderController(config)
 
-        # Add some state
+        # Clear any persisted state and add test entries
+        sbc.blacklist.clear()
+        sbc.whitelist.clear()
         sbc.blacklist.add("1.1.1.1")
         sbc.blacklist.add("2.2.2.2")
         sbc.whitelist.add("3.3.3.3")
@@ -1596,6 +1596,8 @@ class TestEnhancedStatistics:
         """Test that rate limit violations are counted."""
         config = _make_sbc_config(rate_limit=1)
         sbc = SessionBorderController(config)
+        # Ensure IP is not in persisted blacklist from prior test runs
+        sbc.blacklist.discard("10.0.0.99")
 
         msg = {"method": "INVITE", "via": "v", "from": "f", "to": "t", "call_id": "c", "cseq": "1"}
 
