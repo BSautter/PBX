@@ -1244,7 +1244,7 @@ class TestDeleteDndRule:
         mock_pbx_core.dnd_scheduler = MagicMock()
         mock_pbx_core.dnd_scheduler.remove_rule.return_value = True
 
-        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_USER):
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
             resp = api_client.delete("/api/dnd/rule/rule123")
         assert resp.status_code == 200
 
@@ -1252,7 +1252,7 @@ class TestDeleteDndRule:
         mock_pbx_core.dnd_scheduler = MagicMock()
         mock_pbx_core.dnd_scheduler.remove_rule.return_value = False
 
-        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_USER):
+        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
             resp = api_client.delete("/api/dnd/rule/nonexistent")
         assert resp.status_code == 404
 
