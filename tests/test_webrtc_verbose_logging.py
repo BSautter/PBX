@@ -61,6 +61,10 @@ def test_verbose_logging_enabled() -> bool:
     # these records.
     logger.handlers.clear()
     logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
@@ -113,6 +117,10 @@ def test_verbose_logging_in_offer_handling() -> bool:
     # these records.
     logger.handlers.clear()
     logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
@@ -179,6 +187,10 @@ def test_gateway_verbose_logging() -> bool:
     # these records.
     logger.handlers.clear()
     logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
