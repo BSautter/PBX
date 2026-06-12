@@ -42,7 +42,7 @@ class TestConversationalAIDatabaseCreateTables:
 
     def test_create_tables_sqlite(self) -> None:
         """Test table creation with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         result = self.db.create_tables()
         assert result is True
         assert self.mock_cursor.execute.call_count == 4
@@ -58,7 +58,7 @@ class TestConversationalAIDatabaseCreateTables:
 
     def test_create_tables_sqlite_sql_content(self) -> None:
         """Test SQLite SQL contains correct table names and syntax."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.db.create_tables()
         calls = self.mock_cursor.execute.call_args_list
         sql_texts = [c[0][0] for c in calls]
@@ -66,8 +66,8 @@ class TestConversationalAIDatabaseCreateTables:
         assert any("ai_messages" in sql for sql in sql_texts)
         assert any("ai_intents" in sql for sql in sql_texts)
         assert any("ai_configurations" in sql for sql in sql_texts)
-        assert any("AUTOINCREMENT" in sql for sql in sql_texts)
-        assert any("BLOB" in sql for sql in sql_texts)
+        assert any("SERIAL PRIMARY KEY" in sql for sql in sql_texts)
+        assert any("BYTEA" in sql for sql in sql_texts)
 
     def test_create_tables_postgresql_sql_content(self) -> None:
         """Test PostgreSQL SQL contains correct syntax."""
@@ -81,13 +81,13 @@ class TestConversationalAIDatabaseCreateTables:
 
     def test_create_tables_logs_success(self) -> None:
         """Test table creation logs success message."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.db.create_tables()
         self.db.logger.info.assert_called_once_with("Conversational AI tables created successfully")
 
     def test_create_tables_error(self) -> None:
         """Test table creation handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("table error")
         result = self.db.create_tables()
         assert result is False
@@ -107,15 +107,16 @@ class TestConversationalAIDatabaseSaveConversation:
             self.db = ConversationalAIDatabase(self.mock_db)
 
     def test_save_conversation_sqlite(self) -> None:
-        """Test saving conversation with SQLite backend returns lastrowid."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.lastrowid = 7
+        """Test saving conversation with PostgreSQL backend returns fetched id."""
+        self.mock_db.db_type = "postgresql"
+        self.mock_cursor.fetchone.return_value = (7,)
         started_at = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         result = self.db.save_conversation("call-001", "5551234567", started_at)
         assert result == 7
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
+        assert "RETURNING id" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[0] == "call-001"
         assert params[1] == "5551234567"
@@ -135,7 +136,7 @@ class TestConversationalAIDatabaseSaveConversation:
 
     def test_save_conversation_error(self) -> None:
         """Test saving conversation handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("insert error")
         started_at = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
         result = self.db.save_conversation("call-001", "5551234567", started_at)
@@ -144,8 +145,8 @@ class TestConversationalAIDatabaseSaveConversation:
 
     def test_save_conversation_passes_isoformat(self) -> None:
         """Test that started_at is converted to isoformat string."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.lastrowid = 1
+        self.mock_db.db_type = "postgresql"
+        self.mock_cursor.fetchone.return_value = (1,)
         started_at = datetime(2026, 6, 15, 14, 0, 0, tzinfo=UTC)
         self.db.save_conversation("call-001", "caller", started_at)
         params = self.mock_cursor.execute.call_args[0][1]
@@ -166,12 +167,12 @@ class TestConversationalAIDatabaseSaveMessage:
 
     def test_save_message_sqlite(self) -> None:
         """Test saving message with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         ts = datetime(2026, 1, 15, 10, 31, 0, tzinfo=UTC)
         self.db.save_message(1, "user", "Hello, how can I help?", ts)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[0] == 1
         assert params[1] == "user"
@@ -191,7 +192,7 @@ class TestConversationalAIDatabaseSaveMessage:
 
     def test_save_message_error(self) -> None:
         """Test saving message handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("insert error")
         ts = datetime(2026, 1, 15, 10, 31, 0, tzinfo=UTC)
         self.db.save_message(1, "user", "Hello", ts)
@@ -199,7 +200,7 @@ class TestConversationalAIDatabaseSaveMessage:
 
     def test_save_message_various_roles(self) -> None:
         """Test saving messages with different roles."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         ts = datetime(2026, 1, 15, 10, 31, 0, tzinfo=UTC)
         for role in ("user", "assistant", "system"):
             self.mock_cursor.execute.reset_mock()
@@ -222,13 +223,13 @@ class TestConversationalAIDatabaseSaveIntent:
 
     def test_save_intent_sqlite(self) -> None:
         """Test saving intent with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         entities = {"department": "billing", "action": "query"}
         self.db.save_intent(1, "transfer_call", 0.95, entities, ts)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[0] == 1
         assert params[1] == "transfer_call"
@@ -250,23 +251,23 @@ class TestConversationalAIDatabaseSaveIntent:
 
     def test_save_intent_empty_entities(self) -> None:
         """Test saving intent with empty entities dict."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         self.db.save_intent(1, "greeting", 0.99, {}, ts)
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[3] == "{}"
 
     def test_save_intent_error(self) -> None:
-        """Test saving intent handles Exception."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.execute.side_effect = Exception("insert error")
+        """Test saving intent handles ValueError."""
+        self.mock_db.db_type = "postgresql"
+        self.mock_cursor.execute.side_effect = ValueError("insert error")
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         self.db.save_intent(1, "intent", 0.5, {}, ts)
         self.db.logger.error.assert_called_once()
 
     def test_save_intent_value_error(self) -> None:
         """Test saving intent handles ValueError."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = ValueError("val error")
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         self.db.save_intent(1, "intent", 0.5, {}, ts)
@@ -274,7 +275,7 @@ class TestConversationalAIDatabaseSaveIntent:
 
     def test_save_intent_json_decode_error(self) -> None:
         """Test saving intent handles json.JSONDecodeError."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = json.JSONDecodeError("err", "doc", 0)
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         self.db.save_intent(1, "intent", 0.5, {}, ts)
@@ -282,7 +283,7 @@ class TestConversationalAIDatabaseSaveIntent:
 
     def test_save_intent_complex_entities(self) -> None:
         """Test saving intent with complex nested entities."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         ts = datetime(2026, 1, 15, 10, 32, 0, tzinfo=UTC)
         entities = {
             "department": "sales",
@@ -309,11 +310,11 @@ class TestConversationalAIDatabaseEndConversation:
 
     def test_end_conversation_sqlite(self) -> None:
         """Test ending conversation with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.db.end_conversation("call-001", "transfer_call", 5)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         assert "ended_at" in sql
         assert "final_intent" in sql
         assert "message_count" in sql
@@ -336,7 +337,7 @@ class TestConversationalAIDatabaseEndConversation:
 
     def test_end_conversation_timestamp_set(self) -> None:
         """Test that ended_at timestamp is set as ISO format string."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.db.end_conversation("call-001", "done", 3)
         params = self.mock_cursor.execute.call_args[0][1]
         # ended_at should be an ISO format datetime string
@@ -347,7 +348,7 @@ class TestConversationalAIDatabaseEndConversation:
 
     def test_end_conversation_error(self) -> None:
         """Test ending conversation handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("update error")
         self.db.end_conversation("call-001", "intent", 5)
         self.db.logger.error.assert_called_once()
@@ -367,7 +368,7 @@ class TestConversationalAIDatabaseGetConversationHistory:
 
     def test_get_conversation_history_sqlite(self) -> None:
         """Test getting conversation history with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.description = [
             ("id",),
             ("call_id",),
@@ -383,7 +384,7 @@ class TestConversationalAIDatabaseGetConversationHistory:
         assert result[0]["call_id"] == "call-001"
         assert result[1]["msg_count"] == 3
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         assert "LEFT JOIN" in sql
 
     def test_get_conversation_history_postgresql(self) -> None:
@@ -398,7 +399,7 @@ class TestConversationalAIDatabaseGetConversationHistory:
 
     def test_get_conversation_history_default_limit(self) -> None:
         """Test getting conversation history uses default limit of 100."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.description = [("id",)]
         self.mock_cursor.fetchall.return_value = []
         self.db.get_conversation_history()
@@ -407,7 +408,7 @@ class TestConversationalAIDatabaseGetConversationHistory:
 
     def test_get_conversation_history_empty(self) -> None:
         """Test getting conversation history when none exist."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.description = [("id",)]
         self.mock_cursor.fetchall.return_value = []
         result = self.db.get_conversation_history()
@@ -435,7 +436,7 @@ class TestConversationalAIDatabaseGetConversationHistory:
 
     def test_get_conversation_history_error(self) -> None:
         """Test getting conversation history handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("query error")
         result = self.db.get_conversation_history()
         assert result == []
@@ -456,7 +457,7 @@ class TestConversationalAIDatabaseGetIntentStatistics:
 
     def test_get_intent_statistics_sqlite(self) -> None:
         """Test getting intent statistics with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchall.return_value = [
             ("transfer_call", 50),
             ("queue_call", 30),
@@ -492,14 +493,14 @@ class TestConversationalAIDatabaseGetIntentStatistics:
 
     def test_get_intent_statistics_empty(self) -> None:
         """Test getting intent statistics when no intents exist."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchall.return_value = []
         result = self.db.get_intent_statistics()
         assert result == {}
 
     def test_get_intent_statistics_error(self) -> None:
         """Test getting intent statistics handles Exception."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.execute.side_effect = Exception("query error")
         result = self.db.get_intent_statistics()
         assert result == {}
@@ -507,7 +508,7 @@ class TestConversationalAIDatabaseGetIntentStatistics:
 
     def test_get_intent_statistics_sql_content(self) -> None:
         """Test that the SQL groups by intent and orders by count."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchall.return_value = []
         self.db.get_intent_statistics()
         sql = self.mock_cursor.execute.call_args[0][0]
@@ -516,14 +517,14 @@ class TestConversationalAIDatabaseGetIntentStatistics:
 
     def test_get_intent_statistics_single_intent(self) -> None:
         """Test getting intent statistics with a single intent."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchall.return_value = [("only_intent", 42)]
         result = self.db.get_intent_statistics()
         assert result == {"only_intent": 42}
 
     def test_get_intent_statistics_many_intents(self) -> None:
         """Test getting intent statistics with many intents."""
-        self.mock_db.db_type = "sqlite"
+        self.mock_db.db_type = "postgresql"
         intents = [(f"intent_{i}", i * 10) for i in range(20)]
         self.mock_cursor.fetchall.return_value = intents
         result = self.db.get_intent_statistics()

@@ -119,7 +119,7 @@ class SDPSession:
                 for attr in media.get("attributes", []):
                     if attr.startswith("rtpmap:"):
                         # Format: "rtpmap:PT name/rate" or "rtpmap:PT name/rate/channels"
-                        rtpmap_value = attr[len("rtpmap:"):]
+                        rtpmap_value = attr[len("rtpmap:") :]
                         parts = rtpmap_value.split(None, 1)
                         if len(parts) == 2:
                             pt = parts[0]
@@ -196,7 +196,7 @@ class SDPBuilder:
         ilbc_mode: int = 30,
         protocol: str = "RTP/AVP",
         crypto: list[str] | None = None,
-        rtpmap_overrides: dict[str, str] | None = None,
+        _rtpmap_overrides: dict[str, str] | None = None,
         skip_static_rtpmap: bool = False,
     ) -> str:
         """
@@ -279,9 +279,11 @@ class SDPBuilder:
         # rtpmap lines avoids codec name mismatches on phones like the Zultys
         # ZIP 33G/37G whose firmware uses non-standard numeric names internally.
         if not skip_static_rtpmap:
-            for pt in ("0", "8", "9", "18", "2"):
-                if pt in codecs:
-                    attributes.append(f"rtpmap:{pt} {_standard_names[pt]}")
+            attributes.extend(
+                f"rtpmap:{pt} {_standard_names[pt]}"
+                for pt in ("0", "8", "9", "18", "2")
+                if pt in codecs
+            )
 
         # Support for G.726 variants with dynamic payload types
         # G.726-40 (typically uses dynamic PT 114)

@@ -224,19 +224,24 @@ class TestExecuteQuery:
             result = bi._execute_query("SELECT 1", datetime.now(UTC), datetime.now(UTC))
         assert result == []
 
-    def test_sqlite_execution(self) -> None:
+    def test_query_with_date_parameters(self) -> None:
         bi = self._make_bi()
         mock_cursor = MagicMock()
-        mock_cursor.description = [("id",), ("name",)]
-        mock_cursor.fetchall.return_value = [(1, "Alice"), (2, "Bob")]
+        mock_cursor.fetchall.return_value = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
 
         mock_db = MagicMock()
         mock_db.enabled = True
         mock_db.connection = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
-        mock_db.db_type = "sqlite"
 
-        with patch("pbx.utils.database.get_database", return_value=mock_db):
+        mock_psycopg2_extras = MagicMock()
+        mock_psycopg2_extras.RealDictCursor = "FakeCursorClass"
+        with (
+            patch("pbx.utils.database.get_database", return_value=mock_db),
+            patch.dict(
+                "sys.modules", {"psycopg2": MagicMock(), "psycopg2.extras": mock_psycopg2_extras}
+            ),
+        ):
             start = datetime(2024, 1, 1, tzinfo=UTC)
             end = datetime(2024, 1, 31, tzinfo=UTC)
             result = bi._execute_query(

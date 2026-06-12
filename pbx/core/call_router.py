@@ -135,8 +135,10 @@ class CallRouter:
                     pbx.logger.debug(f"DB recovery lookup failed for {to_ext}: {e}")
 
             if not recovered:
-                reason = "not in registry" if not dest_ext else (
-                    "not registered" if not dest_ext.registered else "registration expired"
+                reason = (
+                    "not in registry"
+                    if not dest_ext
+                    else ("not registered" if not dest_ext.registered else "registration expired")
                 )
                 pbx.logger.warning(f"Extension {to_ext} {reason}")
                 if dest_ext and dest_ext.is_expired():

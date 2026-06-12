@@ -552,7 +552,7 @@ class QoSMonitor:
 
                 self.pbx.db.execute(query, params)
                 self.logger.debug(f"Stored QoS metrics for call {summary['call_id']} in database")
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to store QoS metrics in database: {e}")
 
     def update_alert_thresholds(self, thresholds: dict) -> None:

@@ -319,7 +319,7 @@ class TestCheckDatabase:
 
     def test_database_connection_returns_none(self) -> None:
         mock_db_module = MagicMock()
-        mock_db_module.get_database_connection.return_value = None
+        mock_db_module.get_database.return_value = None
 
         checker = ProductionHealthChecker(config={"database": {"type": "postgresql"}})
         with patch.dict("sys.modules", {"pbx.utils.database": mock_db_module}):
@@ -355,7 +355,7 @@ class TestCheckDatabase:
 
     def test_database_query_error(self) -> None:
         mock_db_module = MagicMock()
-        mock_db_module.get_database_connection.side_effect = Exception("query failed")
+        mock_db_module.get_database.side_effect = Exception("query failed")
 
         checker = ProductionHealthChecker(config={"database": {"type": "postgresql"}})
         with patch.dict("sys.modules", {"pbx.utils.database": mock_db_module}):

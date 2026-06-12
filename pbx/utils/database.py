@@ -264,6 +264,35 @@ class DatabaseBackend:
             return False
         return self._execute_with_context(query, "query execution", params, critical=True)
 
+    def execute_rowcount(self, query: str, params: tuple | None = None) -> int | None:
+        """
+        Execute a query and return the number of affected rows.
+
+        Args:
+            query: SQL query (INSERT, UPDATE, DELETE)
+            params: Query parameters
+
+        Returns:
+            Number of affected rows, or None on failure.
+        """
+        if (not self.enabled or not self.connection) and not self._check_connection():
+            return None
+        try:
+            cursor = self.connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            rowcount = cursor.rowcount
+            if not self._autocommit:
+                self.connection.commit()
+            cursor.close()
+            return rowcount
+        except Exception as e:
+            self.logger.error(f"Error during query execution: {e}")
+            self._safe_rollback()
+            return None
+
     def execute_script(self, script: str) -> bool:
         """
         Execute a multi-statement SQL script
@@ -1127,38 +1156,26 @@ class RegisteredPhonesDB:
             tuple[bool, int]: Success status and count of removed registrations
         """
         try:
-            # First, count how many incomplete registrations exist
-            count_query = """
-            SELECT COUNT(*) as count FROM registered_phones
-            WHERE mac_address IS NULL OR mac_address = ''
-               OR ip_address IS NULL OR ip_address = ''
-               OR extension IS NULL OR extension = ''
-            """
-            result = self.db.fetch_one(count_query)
-            count = result["count"] if result else 0
-
-            if count == 0:
-                self.logger.info("No incomplete phone registrations found")
-                return (True, 0)
-
-            # Delete incomplete registrations
             delete_query = """
             DELETE FROM registered_phones
             WHERE mac_address IS NULL OR mac_address = ''
                OR ip_address IS NULL OR ip_address = ''
                OR extension IS NULL OR extension = ''
             """
-            success = self.db.execute(delete_query)
+            count = self.db.execute_rowcount(delete_query)
 
-            if success:
+            if count is None:
+                self.logger.error("Failed to cleanup incomplete phone registrations")
+                return (False, 0)
+
+            if count == 0:
+                self.logger.info("No incomplete phone registrations found")
+            else:
                 self.logger.info(
                     f"Cleaned up {count} incomplete phone registration(s) from database"
                 )
-                self.logger.info("Only phones with MAC, IP, and Extension are retained")
-            else:
-                self.logger.error("Failed to cleanup incomplete phone registrations")
 
-            return (success, count)
+            return (True, count)
         except (KeyError, TypeError, ValueError) as e:
             self.logger.error(f"Error cleaning up incomplete phone registrations: {e}")
             return (False, 0)

@@ -37,7 +37,9 @@ class HubSpotIntegration:
             Configuration dict or None
         """
         try:
-            result = self.db.execute("SELECT id, enabled, api_key_encrypted, portal_id, sync_contacts, sync_deals, auto_create_contacts, last_sync, created_at FROM hubspot_integration ORDER BY id DESC LIMIT 1")
+            result = self.db.execute(
+                "SELECT id, enabled, api_key_encrypted, portal_id, sync_contacts, sync_deals, auto_create_contacts, last_sync, created_at FROM hubspot_integration ORDER BY id DESC LIMIT 1"
+            )
 
             if result and result[0]:
                 row = result[0]
@@ -342,7 +344,9 @@ class ZendeskIntegration:
             Configuration dict or None
         """
         try:
-            result = self.db.execute("SELECT id, enabled, subdomain, api_token_encrypted, email, auto_create_tickets, default_priority, created_at FROM zendesk_integration ORDER BY id DESC LIMIT 1")
+            result = self.db.execute(
+                "SELECT id, enabled, subdomain, api_token_encrypted, email, auto_create_tickets, default_priority, created_at FROM zendesk_integration ORDER BY id DESC LIMIT 1"
+            )
 
             if result and result[0]:
                 row = result[0]

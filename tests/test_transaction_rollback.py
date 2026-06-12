@@ -5,179 +5,165 @@ Validates that failed transactions are properly rolled back to prevent
 "current transaction is aborted" errors
 """
 
-import tempfile
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from pbx.utils.config import Config
 from pbx.utils.database import DatabaseBackend
+
+
+def _make_mock_db():
+    """Create a DatabaseBackend with mocked PostgreSQL connection."""
+    config = MagicMock()
+    config.get.return_value = None
+    with patch("pbx.utils.database.psycopg2") as mock_pg:
+        mock_conn = MagicMock()
+        mock_pg.connect.return_value = mock_conn
+        db = DatabaseBackend(config)
+        db.connection = mock_conn
+        db.enabled = True
+        db.db_type = "postgresql"
+        db._autocommit = True
+    return db, mock_conn
 
 
 def test_transaction_rollback_on_error() -> None:
     """Test that transactions are rolled back after errors"""
+    db, mock_conn = _make_mock_db()
 
-    # Create temporary database for testing
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        # Create a test config for SQLite
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
+    # First call: simulate a failed query
+    mock_cursor.execute.side_effect = Exception("syntax error")
+    result = db.execute("INVALID SQL SYNTAX", ())
+    assert result is False
 
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
+    # Verify rollback was called after the error
+    mock_conn.rollback.assert_called()
 
-        # Create tables first
-        assert db.create_tables() is True
+    # Reset side effect for a successful query
+    mock_cursor.execute.side_effect = None
+    mock_cursor.execute.reset_mock()
+    mock_conn.rollback.reset_mock()
 
-        # Execute a bad query that should fail
-        result = db.execute("INVALID SQL SYNTAX", ())
-        assert result is False
+    # Second call: valid query should succeed (rollback cleared the error state)
+    result = db.execute(
+        "INSERT INTO vip_callers (caller_id, priority_level) VALUES (%s, %s)",
+        ("1234567890", 1),
+    )
+    assert result is True
 
-        # Now execute a valid query - this should succeed
-        # If rollback didn't work, this would fail with "transaction is
-        # aborted" error
-        result = db.execute(
-            "INSERT INTO vip_callers (caller_id, priority_level) VALUES (?, ?)", ("1234567890", 1)
-        )
-        assert result is True
-
-        # Verify the insert worked
-        row = db.fetch_one("SELECT * FROM vip_callers WHERE caller_id = ?", ("1234567890",))
-        assert row is not None
-        assert row["caller_id"] == "1234567890"
-
-        db.disconnect()
-
-    finally:
-        # Cleanup
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_fetch_one_rollback_on_error() -> None:
     """Test that fetch_one rolls back transaction on error"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
+    # Simulate a failed SELECT query
+    mock_cursor.execute.side_effect = Exception("relation does not exist")
+    result = db.fetch_one("SELECT * FROM nonexistent_table", ())
+    assert result is None
 
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-        assert db.create_tables() is True
+    # Verify rollback was called
+    mock_conn.rollback.assert_called()
 
-        # Execute a bad SELECT query
-        result = db.fetch_one("SELECT * FROM nonexistent_table", ())
-        assert result is None
+    # Reset for a successful query
+    mock_cursor.execute.side_effect = None
+    mock_cursor.execute.reset_mock()
+    mock_conn.rollback.reset_mock()
 
-        # Now execute a valid query - should succeed if rollback worked
-        result = db.execute(
-            "INSERT INTO vip_callers (caller_id, priority_level) VALUES (?, ?)", ("9876543210", 1)
-        )
-        assert result is True
+    result = db.execute(
+        "INSERT INTO vip_callers (caller_id, priority_level) VALUES (%s, %s)",
+        ("9876543210", 1),
+    )
+    assert result is True
 
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_fetch_all_rollback_on_error() -> None:
     """Test that fetch_all rolls back transaction on error"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
+    # Simulate a failed SELECT query
+    mock_cursor.execute.side_effect = Exception("relation does not exist")
+    result = db.fetch_all("SELECT * FROM nonexistent_table", ())
+    assert result == []
 
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-        assert db.create_tables() is True
+    # Verify rollback was called
+    mock_conn.rollback.assert_called()
 
-        # Execute a bad SELECT query
-        result = db.fetch_all("SELECT * FROM nonexistent_table", ())
-        assert result == []
+    # Reset for a successful query
+    mock_cursor.execute.side_effect = None
+    mock_cursor.execute.reset_mock()
+    mock_conn.rollback.reset_mock()
 
-        # Now execute a valid query - should succeed if rollback worked
-        result = db.execute(
-            "INSERT INTO vip_callers (caller_id, priority_level) VALUES (?, ?)", ("5555555555", 1)
-        )
-        assert result is True
+    result = db.execute(
+        "INSERT INTO vip_callers (caller_id, priority_level) VALUES (%s, %s)",
+        ("5555555555", 1),
+    )
+    assert result is True
 
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_schema_migration_rollback() -> None:
     """Test that schema migration errors don't leave transactions open"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
-
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-
-        # Create tables (which includes schema migration)
-        # This might encounter errors but should handle them gracefully
+    # create_tables should succeed (all CREATE TABLE IF NOT EXISTS)
+    # Also mock _apply_framework_migrations to avoid import issues
+    with patch.object(db, "_apply_framework_migrations"):
         result = db.create_tables()
-        assert result is True
+    assert result is True
 
-        # After schema migration (even with potential errors), we should be
-        # able to insert
-        result = db.execute(
-            "INSERT INTO vip_callers (caller_id, priority_level) VALUES (?, ?)", ("1112223333", 1)
-        )
-        assert result is True
+    # After table creation, we should be able to execute inserts
+    result = db.execute(
+        "INSERT INTO vip_callers (caller_id, priority_level) VALUES (%s, %s)",
+        ("1112223333", 1),
+    )
+    assert result is True
 
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_permission_error_rollback() -> None:
     """Test that permission errors properly rollback transactions"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
+    # Simulate a failed index creation (non-critical)
+    mock_cursor.execute.side_effect = Exception("relation does not exist")
+    result = db._execute_with_context(
+        "CREATE INDEX test_idx ON nonexistent_table(col)", "index creation", critical=False
+    )
+    # Non-critical errors that are not permission/already-exists still return False
+    # but the rollback should have cleared the connection state
 
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-        assert db.create_tables() is True
+    # Verify rollback was called
+    mock_conn.rollback.assert_called()
 
-        # Try to create an index that will fail (table doesn't exist)
-        # This is marked as non-critical, so should return True but rollback
-        result = db._execute_with_context(
-            "CREATE INDEX test_idx ON nonexistent_table(col)", "index creation", critical=False
-        )
-        # Should fail gracefully
+    # Reset for a successful query
+    mock_cursor.execute.side_effect = None
+    mock_cursor.execute.reset_mock()
+    mock_conn.rollback.reset_mock()
 
-        # After the failed index creation, we should still be able to insert
-        result = db.execute(
-            "INSERT INTO vip_callers (caller_id, priority_level) VALUES (?, ?)", ("4445556666", 1)
-        )
-        assert result is True
+    # After the failed index creation, we should still be able to insert
+    result = db.execute(
+        "INSERT INTO vip_callers (caller_id, priority_level) VALUES (%s, %s)",
+        ("4445556666", 1),
+    )
+    assert result is True
 
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()

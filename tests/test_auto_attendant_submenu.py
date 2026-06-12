@@ -3,11 +3,42 @@ Test suite for Auto Attendant Submenu functionality
 """
 
 import shutil
+import sqlite3
 import tempfile
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 from pbx.features.auto_attendant import AAState, AutoAttendant, DestinationType
+
+
+class _MockDB:
+    """SQLite-backed mock for DatabaseBackend, translating %s -> ? for tests."""
+
+    def __init__(self, db_path: str) -> None:
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.enabled = True
+
+    @staticmethod
+    def _convert(sql: str) -> str:
+        return sql.replace("%s", "?").replace(
+            "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT"
+        )
+
+    def execute(self, sql: str, params: tuple = ()) -> bool:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        self.conn.commit()
+        return cursor.rowcount > 0 or cursor.description is not None
+
+    def fetch_one(self, sql: str, params: tuple = ()) -> dict | None:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list[dict]:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        return [dict(row) for row in cursor.fetchall()]
 
 
 class TestAutoAttendantSubmenu:
@@ -15,11 +46,9 @@ class TestAutoAttendantSubmenu:
 
     def setup_method(self) -> None:
         """Set up test fixtures"""
-        # Create a temporary directory for test database
         self.test_dir = tempfile.mkdtemp()
         self.db_path = Path(self.test_dir) / "test.db"
 
-        # Create a mock config
         self.config_data = {
             "auto_attendant": {
                 "enabled": True,
@@ -32,11 +61,12 @@ class TestAutoAttendantSubmenu:
             "database": {"path": self.db_path},
         }
 
-        # Create mock config object
         self.config = MockConfig(self.config_data)
 
-        # Initialize auto attendant
-        self.aa = AutoAttendant(self.config)
+        mock_db = _MockDB(str(self.db_path))
+        mock_pbx = MagicMock()
+        mock_pbx.database = mock_db
+        self.aa = AutoAttendant(self.config, pbx_core=mock_pbx)
 
     def teardown_method(self) -> None:
         """Clean up test fixtures"""
@@ -306,17 +336,10 @@ class TestAutoAttendantSubmenu:
 
     def test_backward_compatibility_with_legacy_menu(self) -> None:
         """Test that legacy menu_options still work"""
-        # Add a legacy menu option directly to the old table
-        import sqlite3
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO auto_attendant_menu_options (digit, destination, description) VALUES (?, ?, ?)",
+        self.aa.db.execute(
+            "INSERT INTO auto_attendant_menu_options (digit, destination, description) VALUES (%s, %s, %s)",
             ("5", "1005", "Legacy Option"),
         )
-        conn.commit()
-        conn.close()
 
         # Reload menu options
         self.aa._load_menu_options_from_db()

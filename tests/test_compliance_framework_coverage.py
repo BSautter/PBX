@@ -116,8 +116,8 @@ class TestSOC2ComplianceEngineInit:
             engine = SOC2ComplianceEngine(mock_db, config)
 
         assert engine is not None
-        # Should log debug for each failed control registration
-        assert mock_logger.debug.call_count == 16
+        # register_control catches exceptions and logs error for each failed control
+        assert mock_logger.error.call_count == 16
 
 
 @pytest.mark.unit

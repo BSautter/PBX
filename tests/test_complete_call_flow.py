@@ -9,11 +9,26 @@ Tests the complete call flow including:
 - Symmetric RTP/NAT traversal
 """
 
+import importlib
 import socket
 import struct
+import sys
 import time
+from unittest.mock import MagicMock
 
 import pytest
+
+# Other test modules may inject MagicMock objects into sys.modules for
+# ``pbx.rtp.handler`` (and related SIP/SDP modules) to avoid importing heavy
+# dependencies.  When *this* module is collected later, the top-level
+# ``from pbx.rtp.handler import ...`` would silently bind to the mock instead
+# of the real class, causing assertions on real attributes to fail.
+# Guard against that by forcing a real import/reload when needed.
+for _mod_name in ("pbx.rtp.handler", "pbx.rtp.rfc2833", "pbx.sip.sdp"):
+    _existing = sys.modules.get(_mod_name)
+    if isinstance(_existing, MagicMock):
+        del sys.modules[_mod_name]
+        importlib.import_module(_mod_name)
 
 from pbx.rtp.handler import RTPRelayHandler
 from pbx.rtp.rfc2833 import RFC2833EventPacket

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pbx.sip.transaction import TIMER_B, InviteClientTransaction, T1, T2
+from pbx.sip.transaction import T1, T2, TIMER_B, InviteClientTransaction
 
 
 @pytest.mark.unit
@@ -23,9 +23,7 @@ class TestInviteClientTransaction:
         txn.start()
         txn.cancel()  # Clean up timers
 
-        send_fn.assert_called_with(
-            "INVITE sip:1001@10.0.0.1 SIP/2.0\r\n", ("10.0.0.1", 5060)
-        )
+        send_fn.assert_called_with("INVITE sip:1001@10.0.0.1 SIP/2.0\r\n", ("10.0.0.1", 5060))
 
     def test_retransmits_after_t1(self) -> None:
         send_fn = MagicMock()

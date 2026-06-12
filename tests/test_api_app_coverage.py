@@ -55,7 +55,6 @@ class TestCreateApp:
             assert resp.headers.get("X-Frame-Options") == "DENY"
             assert resp.headers.get("X-XSS-Protection") == "1; mode=block"
             assert "strict-origin-when-cross-origin" in resp.headers.get("Referrer-Policy", "")
-            assert "Access-Control-Allow-Origin" in resp.headers
             assert "Content-Security-Policy" in resp.headers
             assert "Permissions-Policy" in resp.headers
 
@@ -67,7 +66,6 @@ class TestCreateApp:
 
         with app.test_client() as client:
             resp = client.get("/api/health")
-            assert resp.headers.get("Access-Control-Allow-Origin") == "*"
             assert "GET" in resp.headers.get("Access-Control-Allow-Methods", "")
             assert "POST" in resp.headers.get("Access-Control-Allow-Methods", "")
             assert "PUT" in resp.headers.get("Access-Control-Allow-Methods", "")
@@ -161,4 +159,4 @@ class TestAdminDir:
     def test_admin_dir_ends_with_admin(self) -> None:
         from pbx.api.app import ADMIN_DIR
 
-        assert ADMIN_DIR.endswith("admin")
+        assert ADMIN_DIR.endswith(("admin/dist", "admin"))

@@ -766,9 +766,7 @@ class MFAManager:
             # Store in database
             if self.database and self.database.enabled:
                 # Check if already enrolled
-                query = (
-                    "SELECT id, enabled FROM mfa_secrets WHERE extension_number = %s"
-                )
+                query = "SELECT id, enabled FROM mfa_secrets WHERE extension_number = %s"
                 result = self.database.fetch_all(query, (extension_number,))
 
                 if result:

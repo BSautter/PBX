@@ -482,7 +482,9 @@ class SpeechAnalyticsEngine:
             list of configuration dictionaries
         """
         try:
-            result = self.db.execute("SELECT id, extension, enabled, transcription_enabled, sentiment_enabled, summarization_enabled, keywords, alert_threshold, created_at, updated_at FROM speech_analytics_configs ORDER BY extension")
+            result = self.db.execute(
+                "SELECT id, extension, enabled, transcription_enabled, sentiment_enabled, summarization_enabled, keywords, alert_threshold, created_at, updated_at FROM speech_analytics_configs ORDER BY extension"
+            )
 
             configs = [
                 {

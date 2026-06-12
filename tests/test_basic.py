@@ -3,11 +3,21 @@
 Basic tests for PBX system
 """
 
+import importlib
+import sys
+import types
 from pathlib import Path
+
+for _mod_name in ("pbx.sip.message", "pbx.sip.sdp"):
+    _cached = sys.modules.get(_mod_name)
+    if _cached is not None and not isinstance(_cached, types.ModuleType):
+        del sys.modules[_mod_name]
 
 from pbx.core.call import CallManager, CallState
 from pbx.features.extensions import Extension
 from pbx.sip.message import SIPMessage, SIPMessageBuilder
+
+importlib.reload(sys.modules["pbx.sip.message"])
 
 
 def test_sip_message_parsing() -> None:

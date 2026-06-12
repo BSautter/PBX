@@ -42,7 +42,7 @@ class TestGetConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_config_found(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         row = (1, "1001", True, "+15551234567", False, True)
         mock_db.execute.return_value = [row]
         engine = ClickToDialEngine(db_backend=mock_db, config={})
@@ -57,7 +57,7 @@ class TestGetConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_config_not_found(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.return_value = []
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.get_config("9999")
@@ -66,7 +66,7 @@ class TestGetConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_config_none_result(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.return_value = None
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.get_config("1001")
@@ -87,8 +87,8 @@ class TestGetConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_config_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
-        mock_db.execute.side_effect = Exception("Query error")
+        mock_db.db_type = "postgresql"
+        mock_db.execute.side_effect = ValueError("Query error")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.get_config("1001")
         assert result is None
@@ -96,7 +96,7 @@ class TestGetConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_config_value_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.side_effect = ValueError("Bad value")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.get_config("1001")
@@ -110,7 +110,7 @@ class TestUpdateConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_existing_config(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         # get_config returns existing config
         existing_row = (1, "1001", True, None, False, True)
         mock_db.execute.return_value = [existing_row]
@@ -129,7 +129,7 @@ class TestUpdateConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_insert_new_config(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         # get_config returns nothing (no existing)
         mock_db.execute.side_effect = [
             [],  # get_config SELECT
@@ -159,8 +159,8 @@ class TestUpdateConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_config_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
-        mock_db.execute.side_effect = Exception("Update failed")
+        mock_db.db_type = "postgresql"
+        mock_db.execute.side_effect = ValueError("Update failed")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.update_config("1001", {"enabled": True})
         assert result is False
@@ -168,7 +168,7 @@ class TestUpdateConfig:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_config_defaults(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.side_effect = [[], None]
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.update_config("1001", {})
@@ -188,7 +188,7 @@ class TestInitiateCall:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_initiate_call_framework_mode(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         call_id = engine.initiate_call("1001", "5559999")
         assert call_id is not None
@@ -198,7 +198,7 @@ class TestInitiateCall:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_initiate_call_with_source(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         call_id = engine.initiate_call("1001", "5559999", source="crm")
         assert call_id is not None
@@ -209,7 +209,7 @@ class TestInitiateCall:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_initiate_call_with_pbx_core(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_pbx = MagicMock()
         mock_call = MagicMock()
         mock_pbx.call_manager.create_call.return_value = mock_call
@@ -222,7 +222,7 @@ class TestInitiateCall:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_initiate_call_pbx_core_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_pbx = MagicMock()
         mock_pbx.call_manager.create_call.side_effect = ValueError("Call creation failed")
         engine = ClickToDialEngine(db_backend=mock_db, config={}, pbx_core=mock_pbx)
@@ -233,7 +233,7 @@ class TestInitiateCall:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_initiate_call_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.side_effect = KeyError("DB key error")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         call_id = engine.initiate_call("1001", "5559999")
@@ -257,7 +257,7 @@ class TestUpdateCallStatus:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_status_without_connected_at(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.update_call_status("c2d-1001-123", "ringing")
         assert result is True
@@ -267,7 +267,7 @@ class TestUpdateCallStatus:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_status_with_connected_at(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         connected = datetime(2026, 2, 17, 10, 0, 0, tzinfo=UTC)
         result = engine.update_call_status("c2d-1001-123", "connected", connected_at=connected)
@@ -288,7 +288,7 @@ class TestUpdateCallStatus:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_update_status_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.side_effect = Exception("Update failed")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         result = engine.update_call_status("c2d-1001-123", "failed")
@@ -302,7 +302,7 @@ class TestGetCallHistory:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_call_history(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         row1 = (
             1,
             "1001",
@@ -334,7 +334,7 @@ class TestGetCallHistory:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_call_history_with_limit(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.return_value = []
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         engine.get_call_history("1001", limit=50)
@@ -344,7 +344,7 @@ class TestGetCallHistory:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_call_history_empty(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.return_value = []
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         history = engine.get_call_history("9999")
@@ -353,7 +353,7 @@ class TestGetCallHistory:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_call_history_none_result(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.return_value = None
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         history = engine.get_call_history("1001")
@@ -362,7 +362,7 @@ class TestGetCallHistory:
     @patch("pbx.features.click_to_dial.get_logger")
     def test_get_call_history_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.execute.side_effect = Exception("Query error")
         engine = ClickToDialEngine(db_backend=mock_db, config={})
         history = engine.get_call_history("1001")

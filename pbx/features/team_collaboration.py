@@ -70,7 +70,7 @@ class TeamMessagingEngine:
 
             return None
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to create messaging channel: {e}")
             return None
 
@@ -137,7 +137,7 @@ class TeamMessagingEngine:
 
             return None
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to send message: {e}")
             return None
 
@@ -210,7 +210,7 @@ class TeamMessagingEngine:
 
             return channels
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get user channels: {e}")
             return []
 
@@ -309,7 +309,7 @@ class FileShareEngine:
 
             return None
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to upload file: {e}")
             return None
 

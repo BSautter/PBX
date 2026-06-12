@@ -258,7 +258,9 @@ class ClickToDialEngine:
             list of configuration dictionaries
         """
         try:
-            result = self.db.execute("SELECT id, extension, enabled, default_caller_id, auto_answer, browser_notification, created_at FROM click_to_dial_configs ORDER BY extension")
+            result = self.db.execute(
+                "SELECT id, extension, enabled, default_caller_id, auto_answer, browser_notification, created_at FROM click_to_dial_configs ORDER BY extension"
+            )
 
             configs = [
                 {
@@ -273,6 +275,6 @@ class ClickToDialEngine:
 
             return configs
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get all click-to-dial configs: {e}")
             return []

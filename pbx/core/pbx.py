@@ -197,6 +197,9 @@ class PBXCore:
         self._registration_locks: dict[str, threading.Lock] = {}
         self._registration_locks_guard = threading.Lock()
 
+        # Cache for device detection results keyed by User-Agent string
+        self._device_model_cache: dict[str, str | None] = {}
+
         # Initialize QoS monitoring system first (needed by RTP relay)
         from pbx.features.qos_monitoring import QoSMonitor
 
@@ -440,15 +443,11 @@ class PBXCore:
                 disk = psutil.disk_usage("/")
                 exporter.disk_usage_bytes.labels(mount_point="/").set(disk.used)
 
-                exporter.update_extensions(
-                    self.extension_registry.get_registered_count()
-                )
+                exporter.update_extensions(self.extension_registry.get_registered_count())
                 exporter.active_calls.set(len(self.call_manager.get_active_calls()))
 
                 if hasattr(self, "conference_system") and self.conference_system is not None:
-                    exporter.conferences_active.set(
-                        len(self.conference_system.get_active_rooms())
-                    )
+                    exporter.conferences_active.set(len(self.conference_system.get_active_rooms()))
 
             except Exception as e:
                 self.logger.debug(f"Metrics collection error: {e}")
@@ -704,12 +703,8 @@ class PBXCore:
             else:
                 # Extract the phone's listening address from Contact header
                 registered_addr = self._extract_contact_address(contact, addr)
-                self.extension_registry.register(
-                    extension_number, registered_addr, expires=expires
-                )
-                self.logger.info(
-                    f"Extension {extension_number} registered from {registered_addr}"
-                )
+                self.extension_registry.register(extension_number, registered_addr, expires=expires)
+                self.logger.info(f"Extension {extension_number} registered from {registered_addr}")
 
                 # Store phone registration in database (skip for unregistration)
             # Store phone registration in database (skip for unregistration)
@@ -796,9 +791,7 @@ class PBXCore:
                     # Last 12 chars might be MAC
                     if len(uuid_str) >= 12:
                         potential_mac = uuid_str[-12:]
-                        mac_address = ":".join(
-                            [potential_mac[i : i + 2] for i in range(0, 12, 2)]
-                        )
+                        mac_address = ":".join([potential_mac[i : i + 2] for i in range(0, 12, 2)])
 
             # Try to extract from User-Agent
             if not mac_address and user_agent:
@@ -830,66 +823,46 @@ class PBXCore:
         if not user_agent:
             return None
 
+        if user_agent in self._device_model_cache:
+            return self._device_model_cache[user_agent]
+
         try:
             user_agent_upper = user_agent.upper()
         except (AttributeError, TypeError):
             self.logger.debug(f"Invalid User-Agent value for phone detection: {user_agent!r}")
             return None
 
-        # Check for Zultys models first (they contain "ZIP" which distinguishes
-        # them from plain Yealink models)
-        # Check for Zultys ZIP33G (OEM rebrand of Yealink T28G)
+        model: str | None = None
+
         if "ZIP33G" in user_agent_upper or "ZIP 33G" in user_agent_upper:
-            return "ZIP33G"
+            model = "ZIP33G"
+        elif "ZIP37G" in user_agent_upper or "ZIP 37G" in user_agent_upper:
+            model = "ZIP37G"
+        elif "T33G" in user_agent_upper:
+            model = "YEALINK_T33G"
+        elif "T46S" in user_agent_upper:
+            model = "YEALINK_T46S"
+        elif "T46G" in user_agent_upper:
+            model = "YEALINK_T46G"
+        elif "T23G" in user_agent_upper:
+            model = "YEALINK_T23G"
+        elif "T28G" in user_agent_upper:
+            model = "YEALINK_T28G"
+        elif "GRANDSTREAM" in user_agent_upper:
+            model = "GRANDSTREAM_HT" if "HT" in user_agent_upper else "GRANDSTREAM"
+        elif "SPA" in user_agent_upper or "CISCO" in user_agent_upper:
+            model = "CISCO_ATA"
+        elif "OBI" in user_agent_upper:
+            model = "OBI_ATA"
+        else:
+            self.logger.debug(
+                f"Unrecognised phone User-Agent: {user_agent!r} — using default codecs"
+            )
 
-        # Check for Zultys ZIP37G (OEM rebrand of Yealink T46G)
-        if "ZIP37G" in user_agent_upper or "ZIP 37G" in user_agent_upper:
-            return "ZIP37G"
+        self._device_model_cache[user_agent] = model
+        return model
 
-        # Check for Yealink models (after ZIP checks to avoid substring matches)
-        # Typical UA: "Yealink SIP-T33G 124.86.0.40 00:15:65:XX:XX:XX"
-        if "T33G" in user_agent_upper:
-            return "YEALINK_T33G"
-
-        # Yealink T46S — high-end business phone
-        if "T46S" in user_agent_upper:
-            return "YEALINK_T46S"
-
-        # Yealink T46G — predecessor to T46S
-        if "T46G" in user_agent_upper:
-            return "YEALINK_T46G"
-
-        # Yealink T23G — entry-level business phone
-        if "T23G" in user_agent_upper:
-            return "YEALINK_T23G"
-
-        # Yealink T28G — mid-range phone (also the base for ZIP33G OEM)
-        if "T28G" in user_agent_upper:
-            return "YEALINK_T28G"
-
-        # Grandstream ATA/phone devices (HT series, GXP series)
-        # Typical UA: "Grandstream HT801 1.0.17.5" or "Grandstream GXP2170 1.0.9.89"
-        if "GRANDSTREAM" in user_agent_upper:
-            if "HT" in user_agent_upper:
-                return "GRANDSTREAM_HT"
-            return "GRANDSTREAM"
-
-        # Cisco/Linksys ATA devices
-        # Typical UA: "Cisco-SPA112/1.4.1" or "Linksys/SPA-2102"
-        if "SPA" in user_agent_upper or "CISCO" in user_agent_upper:
-            return "CISCO_ATA"
-
-        # OBi ATA devices (Polycom/Obihai)
-        # Typical UA: "OBi200/3.2.2"
-        if "OBI" in user_agent_upper:
-            return "OBI_ATA"
-
-        self.logger.debug(f"Unrecognised phone User-Agent: {user_agent!r} — using default codecs")
-        return None
-
-    def _get_rtpmap_for_phone_model(
-        self, phone_model: str | None
-    ) -> dict[str, str] | None:
+    def _get_rtpmap_for_phone_model(self, phone_model: str | None) -> dict[str, str] | None:
         """
         Get rtpmap name overrides for a specific phone model.
 
@@ -1056,7 +1029,11 @@ class PBXCore:
         # Only include DTMF telephone-event if the remote side actually offered
         # it.  Adding telephone-event to an SDP answer when the offer didn't
         # include it violates RFC 3264 and confuses some phone firmware.
-        if dtmf_pt_str in model_set and dtmf_pt_str in answered_set and dtmf_pt_str not in compatible:
+        if (
+            dtmf_pt_str in model_set
+            and dtmf_pt_str in answered_set
+            and dtmf_pt_str not in compatible
+        ):
             compatible.append(dtmf_pt_str)
 
         # De-duplicate while preserving order
@@ -1813,10 +1790,16 @@ class PBXCore:
         rtp_ports = self.rtp_relay.allocate_relay(consult_call_id)
         if not rtp_ports:
             self.logger.error("Failed to allocate RTP ports for consultation call")
-            if not self.resume_call(call_id):
-                self.logger.error(
+            resumed = self.resume_call(call_id)
+            if not resumed:
+                self.logger.critical(
                     f"Failed to resume original call {call_id} after RTP allocation failure — "
-                    "call may be stuck on hold"
+                    "call is stuck on hold. Tearing down call."
+                )
+                self._teardown_stuck_call(call_id, call)
+            else:
+                self.logger.info(
+                    f"Original call {call_id} resumed after consultation transfer failure"
                 )
             return None
 
@@ -1898,6 +1881,41 @@ class PBXCore:
             self.logger.info(f"Call {call_id} resumed")
             return True
         return False
+
+    def _teardown_stuck_call(self, call_id: str, call: Any) -> None:
+        """
+        Tear down a call that is stuck in an unrecoverable state (e.g. hold
+        with no way to resume). Sends BYE to both parties and releases RTP.
+        """
+        from pbx.sip.message import SIPMessageBuilder
+
+        server_ip = self._get_server_ip()
+
+        for party, ext_field in [("caller", "from_extension"), ("callee", "to_extension")]:
+            ext = getattr(call, ext_field, None)
+            if not ext:
+                continue
+            addr = self.extension_registry.get_address(ext) if self.extension_registry else None
+            if not addr:
+                continue
+            try:
+                bye = SIPMessageBuilder.build_request(
+                    method="BYE",
+                    uri=f"sip:{ext}@{addr[0]}:{addr[1]}",
+                    from_addr=f"<sip:pbx@{server_ip}>",
+                    to_addr=f"<sip:{ext}@{server_ip}>",
+                    call_id=call_id,
+                    cseq=99,
+                )
+                bye.set_header("Reason", 'Q.850;cause=47;text="Resource unavailable"')
+                self.sip_server._send_message(bye.build(), addr)
+                self.logger.info(f"Sent BYE to {party} ({ext}) for stuck call {call_id}")
+            except Exception as e:
+                self.logger.error(f"Failed to send BYE to {party} ({ext}): {e}")
+
+        self.rtp_relay.release_relay(call_id)
+        self.call_manager.end_call(call_id)
+        self.logger.info(f"Stuck call {call_id} torn down")
 
     def _check_dialplan(self, extension: str) -> bool:
         """Check if extension matches dialplan rules"""

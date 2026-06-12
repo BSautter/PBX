@@ -82,9 +82,7 @@ class ZoomIntegration:
                 self.access_token = data.get("access_token")
                 expires_in = data.get("expires_in", 3600)
                 buffer = min(TOKEN_EXPIRY_BUFFER_SECONDS, expires_in // 2)
-                self.token_expiry = datetime.now(UTC) + timedelta(
-                    seconds=expires_in - buffer
-                )
+                self.token_expiry = datetime.now(UTC) + timedelta(seconds=expires_in - buffer)
 
                 self.logger.info("Zoom authentication successful")
                 return True

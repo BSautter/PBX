@@ -334,7 +334,7 @@ class TestCallManagerInit:
 
     def test_initial_call_history_empty(self) -> None:
         mgr = CallManager()
-        assert mgr.call_history == []
+        assert len(mgr.call_history) == 0
 
 
 @pytest.mark.unit

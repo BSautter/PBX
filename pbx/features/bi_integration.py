@@ -309,7 +309,7 @@ class BIIntegration:
                         values.append(f"'{escaped}'")
                 values_str = ", ".join(values)
                 col_names = ", ".join(f'"{col}"' for col in columns)
-                f.write(f'INSERT INTO "{dataset_name}" ({col_names}) VALUES ({values_str});\n')
+                f.write(f'INSERT INTO "{dataset_name}" ({col_names}) VALUES ({values_str});\n')  # nosec B608
 
         self.logger.info(f"Exported {len(data)} rows to {filename}")
         return filename

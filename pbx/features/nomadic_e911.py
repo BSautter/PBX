@@ -209,7 +209,9 @@ class NomadicE911Engine:
             Site config with full address details or None
         """
         try:
-            result = self.db.execute("SELECT id, site_name, ip_range_start, ip_range_end, emergency_trunk, psap_number, elin, street_address, city, state, postal_code, country, building, floor, created_at FROM multi_site_e911_configs")
+            result = self.db.execute(
+                "SELECT id, site_name, ip_range_start, ip_range_end, emergency_trunk, psap_number, elin, street_address, city, state, postal_code, country, building, floor, created_at FROM multi_site_e911_configs"
+            )
 
             for row in result or []:
                 site_data = {
@@ -326,7 +328,9 @@ class NomadicE911Engine:
             list of site dictionaries with full address information
         """
         try:
-            result = self.db.execute("SELECT id, site_name, ip_range_start, ip_range_end, emergency_trunk, psap_number, elin, street_address, city, state, postal_code, country, building, floor, created_at FROM multi_site_e911_configs ORDER BY site_name")
+            result = self.db.execute(
+                "SELECT id, site_name, ip_range_start, ip_range_end, emergency_trunk, psap_number, elin, street_address, city, state, postal_code, country, building, floor, created_at FROM multi_site_e911_configs ORDER BY site_name"
+            )
 
             sites = [
                 {
@@ -447,14 +451,16 @@ class NomadicE911Engine:
             locations = []
             for row in result or []:
                 addr_parts = [p for p in [row[4], row[5], row[6], row[7]] if p]
-                locations.append({
-                    "extension": row[1],
-                    "site_name": row[3],
-                    "address": ", ".join(addr_parts) if addr_parts else None,
-                    "detection_method": "auto" if row[15] else "manual",
-                    "last_updated": str(row[14]) if row[14] else None,
-                    "ip_address": row[2],
-                })
+                locations.append(
+                    {
+                        "extension": row[1],
+                        "site_name": row[3],
+                        "address": ", ".join(addr_parts) if addr_parts else None,
+                        "detection_method": "auto" if row[15] else "manual",
+                        "last_updated": str(row[14]) if row[14] else None,
+                        "ip_address": row[2],
+                    }
+                )
 
             return locations
 

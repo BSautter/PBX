@@ -97,7 +97,7 @@ class CallRecording:
     def get_duration(self) -> float:
         """Get recording duration in seconds"""
         if self.start_time:
-            end_time = self.end_time if self.end_time else datetime.now(UTC)
+            end_time = self.end_time or datetime.now(UTC)
             return (end_time - self.start_time).total_seconds()
         return 0
 

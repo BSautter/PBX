@@ -19,7 +19,10 @@ class TestRTPHandlerInit:
     """Tests for RTPHandler.__init__."""
 
     def test_init_defaults(self) -> None:
-        with patch("pbx.rtp.handler.get_logger"):
+        with (
+            patch("pbx.rtp.handler.get_logger"),
+            patch("pbx.rtp.handler.random.randint", return_value=0x12345678),
+        ):
             from pbx.rtp.handler import RTPHandler
 
             h = RTPHandler(local_port=5000)
@@ -1428,7 +1431,10 @@ class TestRTPPlayerInit:
     """Tests for RTPPlayer.__init__."""
 
     def test_init_defaults(self) -> None:
-        with patch("pbx.rtp.handler.get_logger"):
+        with (
+            patch("pbx.rtp.handler.get_logger"),
+            patch("pbx.rtp.handler.random.randint", return_value=0x87654321),
+        ):
             from pbx.rtp.handler import RTPPlayer
 
             p = RTPPlayer(local_port=5000, remote_host="10.0.0.1", remote_port=6000)
@@ -1661,7 +1667,10 @@ class TestRTPPlayerBuildRTPPacket:
     """Tests for RTPPlayer._build_rtp_packet."""
 
     def test_builds_correct_header(self) -> None:
-        with patch("pbx.rtp.handler.get_logger"):
+        with (
+            patch("pbx.rtp.handler.get_logger"),
+            patch("pbx.rtp.handler.random.randint", return_value=0x87654321),
+        ):
             from pbx.rtp.handler import RTPPlayer
 
             p = RTPPlayer(local_port=5000, remote_host="10.0.0.1", remote_port=6000)

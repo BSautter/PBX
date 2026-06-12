@@ -253,15 +253,11 @@ def get_features_config() -> tuple[Response, int]:
             "description": "Log in to any phone with your extension",
         },
         "voicemail_transcription": {
-            "enabled": pbx_core.config.get(
-                "features.voicemail_transcription.enabled", True
-            ),
+            "enabled": pbx_core.config.get("features.voicemail_transcription.enabled", True),
             "description": "Speech-to-text voicemail transcription",
         },
         "call_recording_announcements": {
-            "enabled": pbx_core.config.get(
-                "features.call_recording_announcements.enabled", False
-            ),
+            "enabled": pbx_core.config.get("features.call_recording_announcements.enabled", False),
             "description": "Play recording announcements to callers",
         },
         "fraud_detection": {
@@ -293,11 +289,13 @@ def get_features_config() -> tuple[Response, int]:
         },
     }
 
-    return send_json({
-        "core": core_features,
-        "advanced": advanced_features,
-        "integrations": integration_features,
-    }), 200
+    return send_json(
+        {
+            "core": core_features,
+            "advanced": advanced_features,
+            "integrations": integration_features,
+        }
+    ), 200
 
 
 @config_bp.route("/api/config/dtmf", methods=["GET"])
@@ -639,10 +637,26 @@ def get_codecs() -> tuple[Response, int]:
         codecs = [
             {"name": "G.711-ulaw", "enabled": True, "priority": 1},
             {"name": "G.711-alaw", "enabled": True, "priority": 2},
-            {"name": "G.729", "enabled": pbx_core.config.get("codecs.g729.enabled", True), "priority": 3},
-            {"name": "GSM-FR", "enabled": pbx_core.config.get("codecs.gsm.enabled", False), "priority": 4},
-            {"name": "iLBC", "enabled": pbx_core.config.get("codecs.ilbc.enabled", False), "priority": 5},
-            {"name": "Opus", "enabled": pbx_core.config.get("codecs.opus.enabled", True), "priority": 6},
+            {
+                "name": "G.729",
+                "enabled": pbx_core.config.get("codecs.g729.enabled", True),
+                "priority": 3,
+            },
+            {
+                "name": "GSM-FR",
+                "enabled": pbx_core.config.get("codecs.gsm.enabled", False),
+                "priority": 4,
+            },
+            {
+                "name": "iLBC",
+                "enabled": pbx_core.config.get("codecs.ilbc.enabled", False),
+                "priority": 5,
+            },
+            {
+                "name": "Opus",
+                "enabled": pbx_core.config.get("codecs.opus.enabled", True),
+                "priority": 6,
+            },
         ]
         return send_json({"codecs": codecs}), 200
     except (KeyError, TypeError, ValueError) as e:
@@ -681,7 +695,10 @@ def update_codecs() -> tuple[Response, int]:
 
             config_key = config_key_map.get(codec_name)
             if config_key:
-                pbx_core.config.config.setdefault("codecs", {})[config_key.split(".")[1]] = {"enabled": enabled, "priority": priority}
+                pbx_core.config.config.setdefault("codecs", {})[config_key.split(".")[1]] = {
+                    "enabled": enabled,
+                    "priority": priority,
+                }
 
         # Save configuration
         success = pbx_core.config.save()

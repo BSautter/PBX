@@ -449,7 +449,7 @@ class SOC2ComplianceEngine:
             self.logger.info(f"Registered SOC 2 control: {control_data['control_id']}")
             return True
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to register control: {e}")
             return False
 
@@ -487,7 +487,9 @@ class SOC2ComplianceEngine:
             list of control dictionaries
         """
         try:
-            result = self.db.fetch_all("SELECT id, control_id, control_category, description, implementation_status, last_tested, test_results FROM soc2_controls ORDER BY control_id")
+            result = self.db.fetch_all(
+                "SELECT id, control_id, control_category, description, implementation_status, last_tested, test_results FROM soc2_controls ORDER BY control_id"
+            )
 
             controls = [
                 {
@@ -503,7 +505,7 @@ class SOC2ComplianceEngine:
 
             return controls
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get controls: {e}")
             return []
 
@@ -539,7 +541,7 @@ class SOC2ComplianceEngine:
 
             return controls
 
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Failed to get controls by category: {e}")
             return []
 

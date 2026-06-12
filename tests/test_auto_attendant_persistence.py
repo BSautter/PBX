@@ -8,8 +8,38 @@ import sqlite3
 import tempfile
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 from pbx.features.auto_attendant import AutoAttendant
+
+
+class _MockDB:
+    """SQLite-backed mock for DatabaseBackend, translating %s -> ? for tests."""
+
+    def __init__(self, db_path: str) -> None:
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.enabled = True
+
+    @staticmethod
+    def _convert(sql: str) -> str:
+        return sql.replace("%s", "?").replace(
+            "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT"
+        )
+
+    def execute(self, sql: str, params: tuple = ()) -> bool:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        self.conn.commit()
+        return cursor.rowcount > 0 or cursor.description is not None
+
+    def fetch_one(self, sql: str, params: tuple = ()) -> dict | None:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list[dict]:
+        cursor = self.conn.execute(self._convert(sql), params or ())
+        return [dict(row) for row in cursor.fetchall()]
 
 
 class MockConfig:
@@ -41,22 +71,23 @@ class TestAutoAttendantPersistence:
 
     def setup_method(self) -> None:
         """Set up test environment"""
-        # Create temporary database
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
         self.config = MockConfig(self.db_path)
+        self.mock_db = _MockDB(self.db_path)
+        self.mock_pbx = MagicMock()
+        self.mock_pbx.database = self.mock_db
 
     def teardown_method(self) -> None:
         """Clean up test environment"""
-        # Close and remove temporary database
         os.close(self.db_fd)
         Path(self.db_path).unlink(missing_ok=True)
 
-    def test_initial_config_saved_to_db(self) -> None:
-        """Test that initial configuration is saved to database"""
-        # Create auto attendant
-        AutoAttendant(config=self.config)
+    def _create_aa(self) -> AutoAttendant:
+        return AutoAttendant(config=self.config, pbx_core=self.mock_pbx)
 
-        # Verify configuration was saved to database
+    def test_initial_config_saved_to_db(self) -> None:
+        self._create_aa()
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -72,11 +103,8 @@ class TestAutoAttendantPersistence:
         assert row[3] == 3  # max_retries
 
     def test_initial_menu_options_saved_to_db(self) -> None:
-        """Test that initial menu options are saved to database"""
-        # Create auto attendant
-        AutoAttendant(config=self.config)
+        self._create_aa()
 
-        # Verify menu options were saved to database
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -94,79 +122,54 @@ class TestAutoAttendantPersistence:
         assert rows[1][2] == "Support"
 
     def test_config_persists_across_restarts(self) -> None:
-        """Test that configuration persists across restarts"""
-        # Create auto attendant and update config
-        aa1 = AutoAttendant(config=self.config)
+        aa1 = self._create_aa()
         aa1.update_config(enabled=False, extension="9", timeout=20, max_retries=5)
 
-        # Create new instance (simulating restart)
-        aa2 = AutoAttendant(config=self.config)
+        aa2 = self._create_aa()
 
-        # Verify configuration persisted
         assert not aa2.enabled
         assert aa2.extension == "9"
         assert aa2.timeout == 20
         assert aa2.max_retries == 5
 
     def test_menu_options_persist_across_restarts(self) -> None:
-        """Test that menu options persist across restarts"""
-        # Create auto attendant and add menu option
-        aa1 = AutoAttendant(config=self.config)
+        aa1 = self._create_aa()
         aa1.add_menu_option("3", "1003", "Billing")
 
-        # Create new instance (simulating restart)
-        aa2 = AutoAttendant(config=self.config)
+        aa2 = self._create_aa()
 
-        # Verify menu option persisted
         assert "3" in aa2.menu_options
         assert aa2.menu_options["3"]["destination"] == "1003"
         assert aa2.menu_options["3"]["description"] == "Billing"
 
     def test_menu_option_update_persists(self) -> None:
-        """Test that menu option updates persist"""
-        # Create auto attendant
-        aa1 = AutoAttendant(config=self.config)
-
-        # Update menu option
+        aa1 = self._create_aa()
         aa1.add_menu_option("1", "1005", "New Sales")
 
-        # Create new instance (simulating restart)
-        aa2 = AutoAttendant(config=self.config)
+        aa2 = self._create_aa()
 
-        # Verify update persisted
         assert aa2.menu_options["1"]["destination"] == "1005"
         assert aa2.menu_options["1"]["description"] == "New Sales"
 
     def test_menu_option_deletion_persists(self) -> None:
-        """Test that menu option deletion persists"""
-        # Create auto attendant
-        aa1 = AutoAttendant(config=self.config)
-
-        # Delete menu option
+        aa1 = self._create_aa()
         aa1.remove_menu_option("1")
 
-        # Create new instance (simulating restart)
-        aa2 = AutoAttendant(config=self.config)
+        aa2 = self._create_aa()
 
-        # Verify deletion persisted
         assert "1" not in aa2.menu_options
-        assert "2" in aa2.menu_options  # Other option still exists
+        assert "2" in aa2.menu_options
 
     def test_database_tables_created(self) -> None:
-        """Test that database tables are created"""
-        # Create auto attendant
-        AutoAttendant(config=self.config)
+        self._create_aa()
 
-        # Verify tables exist
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Check config table
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='auto_attendant_config'"
         )
         assert cursor.fetchone() is not None
-        # Check menu options table
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='auto_attendant_menu_options'"
         )
@@ -174,21 +177,16 @@ class TestAutoAttendantPersistence:
         conn.close()
 
     def test_multiple_updates_persist(self) -> None:
-        """Test that multiple sequential updates persist"""
-        # Create auto attendant
-        aa1 = AutoAttendant(config=self.config)
+        aa1 = self._create_aa()
 
-        # Make multiple changes
         aa1.update_config(timeout=15)
         aa1.add_menu_option("3", "1003", "Billing")
         aa1.add_menu_option("4", "1004", "HR")
         aa1.remove_menu_option("2")
         aa1.update_config(max_retries=7)
 
-        # Create new instance (simulating restart)
-        aa2 = AutoAttendant(config=self.config)
+        aa2 = self._create_aa()
 
-        # Verify all changes persisted
         assert aa2.timeout == 15
         assert aa2.max_retries == 7
         assert "1" in aa2.menu_options

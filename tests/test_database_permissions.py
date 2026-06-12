@@ -3,107 +3,92 @@
 Tests for database permission error handling
 """
 
-import tempfile
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from pbx.utils.config import Config
 from pbx.utils.database import DatabaseBackend
+
+
+def _make_mock_db():
+    """Create a DatabaseBackend with mocked PostgreSQL connection."""
+    config = MagicMock()
+    config.get.return_value = None
+    with patch("pbx.utils.database.psycopg2") as mock_pg:
+        mock_conn = MagicMock()
+        mock_pg.connect.return_value = mock_conn
+        db = DatabaseBackend(config)
+        db.connection = mock_conn
+        db.enabled = True
+        db.db_type = "postgresql"
+        db._autocommit = True
+    return db, mock_conn
 
 
 def test_index_creation_with_permission_error() -> None:
     """Test that index creation failures don't cause startup errors"""
+    db, mock_conn = _make_mock_db()
 
-    # Create temporary database for testing
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        # Create a test config for SQLite
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
-
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-
-        # First, create the tables normally
-        assert db.create_tables() is True
-
-        # Call create_tables again - indexes already exist
-        # This simulates a scenario where tables exist but may have permission issues
-        # This should NOT fail or produce error messages
+    # First create_tables call should succeed
+    with patch.object(db, "_apply_framework_migrations"):
         result = db.create_tables()
+    assert result is True
 
-        # The method should return True even when tables/indexes already exist
-        assert result is True
-
-        # Call it a third time to be sure
+    # Call create_tables again - should succeed even when tables/indexes exist
+    # Simulate "already exists" for second call
+    with patch.object(db, "_apply_framework_migrations"):
         result = db.create_tables()
-        assert result is True
+    assert result is True
 
-        db.disconnect()
+    # Third call to be sure
+    with patch.object(db, "_apply_framework_migrations"):
+        result = db.create_tables()
+    assert result is True
 
-    finally:
-        # Cleanup
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_table_already_exists_handling() -> None:
     """Test that 'already exists' errors are handled gracefully"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
-
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
-
-        # Create tables once
+    # Create tables once
+    with patch.object(db, "_apply_framework_migrations"):
         assert db.create_tables() is True
 
-        # Create tables again - should succeed without errors
+    # Create tables again - should succeed without errors
+    with patch.object(db, "_apply_framework_migrations"):
         assert db.create_tables() is True
 
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()
 
 
 def test_critical_vs_non_critical_errors() -> None:
     """Test that critical and non-critical errors are handled differently"""
+    db, mock_conn = _make_mock_db()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as temp_db:
-        pass
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
 
-    try:
-        test_config = Config("config.yml")
-        test_config.config["database"] = {"type": "sqlite", "path": temp_db.name}
+    # Test non-critical permission error (should return True)
+    mock_cursor.execute.side_effect = Exception("permission denied for table test_table")
+    result = db._execute_with_context(
+        "CREATE INDEX test_idx ON test_table(col)", "index creation", critical=False
+    )
+    # Permission errors on non-critical operations return True
+    assert result is True
 
-        db = DatabaseBackend(test_config)
-        assert db.connect() is True
+    # Reset side effect
+    mock_cursor.execute.side_effect = Exception("syntax error at or near")
 
-        # Test non-critical permission error (should return True)
-        result = db._execute_with_context(
-            "CREATE INDEX test_idx ON test_table(col)", "index creation", critical=False
-        )
-        # Should fail but be handled gracefully
-        # In real scenario with permission error, it would return True
-        # Here it just fails with table not existing, which is fine for testing
-        # logic
+    # Test critical error (should return False)
+    result = db._execute_with_context(
+        "INVALID SQL SYNTAX HERE", "critical operation", critical=True
+    )
+    assert result is False
 
-        # Test critical error (should return False and log error)
-        result = db._execute_with_context(
-            "INVALID SQL SYNTAX HERE", "critical operation", critical=True
-        )
-        assert result is False
-
-        db.disconnect()
-
-    finally:
-        if Path(temp_db.name).exists():
-            Path(temp_db.name).unlink(missing_ok=True)
+    db.disconnect()

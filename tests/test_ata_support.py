@@ -605,5 +605,3 @@ class TestDatabaseLayerMethods:
         assert "detect_device_type" in source, (
             "_detect_device_type should call shared utility function"
         )
-
-

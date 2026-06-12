@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import importlib
 import math
 import struct
+import sys
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+
+# Other test modules inject a MagicMock into sys.modules for pbx.utils.audio
+# at module level (e.g. test_auto_attendant_handler_coverage.py). Force-load
+# the real module so inline imports in tests below get real constants.
+_cached = sys.modules.get("pbx.utils.audio")
+if _cached is not None and not isinstance(_cached, types.ModuleType):
+    del sys.modules["pbx.utils.audio"]
+import pbx.utils.audio
+
+importlib.reload(pbx.utils.audio)
 
 
 @pytest.mark.unit

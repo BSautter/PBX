@@ -268,7 +268,9 @@ class PredictiveDialingDatabase:
         """Get all campaigns"""
         try:
             cursor = self.db.connection.cursor()
-            cursor.execute("SELECT id, campaign_id, name, dialing_mode, status, max_attempts, retry_interval, created_at, started_at, ended_at, total_contacts, contacts_completed, successful_calls, failed_calls FROM dialing_campaigns ORDER BY created_at DESC")
+            cursor.execute(
+                "SELECT id, campaign_id, name, dialing_mode, status, max_attempts, retry_interval, created_at, started_at, ended_at, total_contacts, contacts_completed, successful_calls, failed_calls FROM dialing_campaigns ORDER BY created_at DESC"
+            )
 
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
