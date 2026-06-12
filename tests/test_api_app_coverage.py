@@ -159,4 +159,4 @@ class TestAdminDir:
     def test_admin_dir_ends_with_admin(self) -> None:
         from pbx.api.app import ADMIN_DIR
 
-        assert ADMIN_DIR.endswith("admin/dist") or ADMIN_DIR.endswith("admin")
+        assert ADMIN_DIR.endswith(("admin/dist", "admin"))
