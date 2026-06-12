@@ -490,9 +490,11 @@ class TestGetRegisteredPhonesWithMac:
         assert data[0]["mac_source"] == "sip_registration"
 
     def test_no_pbx_core(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        with patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN):
-            with patch("pbx.api.routes.provisioning.get_pbx_core", return_value=None):
-                resp = api_client.get("/api/registered-phones/with-mac")
+        with (
+            patch("pbx.api.routes.provisioning.get_pbx_core", return_value=None),
+            patch("pbx.api.utils.verify_authentication", return_value=AUTH_ADMIN),
+        ):
+            resp = api_client.get("/api/registered-phones/with-mac")
         assert resp.status_code == 500
 
     def test_no_database(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:

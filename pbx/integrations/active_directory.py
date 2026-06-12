@@ -235,8 +235,12 @@ class ActiveDirectoryIntegration:
             search_filter = f"(&(objectClass=user){phone_filter}(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 
             search_attrs = [
-                "sAMAccountName", "displayName", "mail",
-                "telephoneNumber", "ipPhone", "memberOf",
+                "sAMAccountName",
+                "displayName",
+                "mail",
+                "telephoneNumber",
+                "ipPhone",
+                "memberOf",
             ]
             # Include the configured attribute if it's custom
             if extension_attr not in search_attrs:
@@ -435,9 +439,15 @@ class ActiveDirectoryIntegration:
                         if use_database:
                             # Only pass parameters that extension_db.add() accepts
                             db_fields = {
-                                "number", "name", "password_hash", "email",
-                                "allow_external", "voicemail_pin", "ad_synced",
-                                "ad_username", "is_admin",
+                                "number",
+                                "name",
+                                "password_hash",
+                                "email",
+                                "allow_external",
+                                "voicemail_pin",
+                                "ad_synced",
+                                "ad_username",
+                                "is_admin",
                             }
                             db_data = {k: v for k, v in ext_data.items() if k in db_fields}
                             success = extension_db.add(**db_data)

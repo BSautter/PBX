@@ -92,6 +92,12 @@ jobs:
               sys.exit(0)
           EOF
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: YAML Syntax Check
         run: |
           python3 << 'EOF'

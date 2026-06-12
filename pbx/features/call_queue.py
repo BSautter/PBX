@@ -256,7 +256,9 @@ class CallQueue:
                     for agent in result:
                         agent.set_busy(call.call_id)
                     assignments.append((call, result))
-                    self.logger.info(f"Assigned call {call.call_id} to {len(result)} agents (ring all)")
+                    self.logger.info(
+                        f"Assigned call {call.call_id} to {len(result)} agents (ring all)"
+                    )
                 else:
                     result.set_busy(call.call_id)
                     assignments.append((call, result))

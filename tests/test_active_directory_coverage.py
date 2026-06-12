@@ -17,11 +17,15 @@ _mock_ldap3.SUBTREE = "SUBTREE"
 _mock_ldap3.Server = MagicMock
 _mock_ldap3.Connection = MagicMock
 _mock_ldap3.utils.conv.escape_filter_chars = MagicMock(side_effect=lambda x: x)
+# Provide a real exception class so "from ldap3.core.exceptions import LDAPException" works
+_mock_ldap3.core.exceptions.LDAPException = type("LDAPException", (Exception,), {})
 
 # Insert the mock into sys.modules so the import inside active_directory.py works
 sys.modules.setdefault("ldap3", _mock_ldap3)
 sys.modules.setdefault("ldap3.utils", _mock_ldap3.utils)
 sys.modules.setdefault("ldap3.utils.conv", _mock_ldap3.utils.conv)
+sys.modules.setdefault("ldap3.core", _mock_ldap3.core)
+sys.modules.setdefault("ldap3.core.exceptions", _mock_ldap3.core.exceptions)
 
 # Now import the module under test; LDAP3_AVAILABLE will be True
 from pbx.integrations.active_directory import ActiveDirectoryIntegration
@@ -96,6 +100,9 @@ class _LdapEntry:
 
     Attributes are set only when explicitly requested, so ``hasattr()``
     behaves exactly the same as with a real ldap3 entry object.
+
+    Supports ``entry["attrName"]`` (item access) as well as
+    ``entry.attrName`` (attribute access), matching the real ldap3 API.
     """
 
     def __init__(
@@ -128,12 +135,26 @@ class _LdapEntry:
             # entry.memberOf.  We set both so both paths work.
             self.memberO = groups
 
+    def __getitem__(self, key: str) -> object:
+        """Support ``entry["attrName"]`` item access (used by sync_users)."""
+        return getattr(self, key)
+
 
 class _StrProxy:
-    """Object whose ``str()`` returns a deterministic string."""
+    """Object whose ``str()`` returns a deterministic string.
+
+    Also exposes ``.value`` so that production code that checks
+    ``entry.telephoneNumber.value`` (or ``entry[attr].value``) sees
+    a truthy value.
+    """
 
     def __init__(self, value: str) -> None:
         self._value = value
+
+    @property
+    def value(self) -> str:
+        """Return the raw value, matching the ldap3 entry attribute API."""
+        return self._value
 
     def __str__(self) -> str:
         return self._value
@@ -790,20 +811,23 @@ class TestSyncUsers:
 
     def test_disabled(self) -> None:
         ad = _make_ad({"integrations.active_directory.enabled": False})
-        assert ad.sync_users() == 0
+        result = ad.sync_users()
+        assert result["synced_count"] == 0
 
     def test_auto_provision_disabled(self) -> None:
         ad = _make_ad({"integrations.active_directory.auto_provision": False})
-        assert ad.sync_users() == 0
+        result = ad.sync_users()
+        assert result["synced_count"] == 0
 
     def test_connect_fails(self) -> None:
         ad = _make_ad({"integrations.active_directory.bind_password": None})
-        assert ad.sync_users() == 0
+        result = ad.sync_users()
+        assert result["synced_count"] == 0
 
     def test_no_users_found(self) -> None:
         ad, _conn = _make_ad_connected()
         result = ad.sync_users()
-        assert result == 0
+        assert result["synced_count"] == 0
 
     def test_sync_creates_new_extension_in_db(self) -> None:
         entry = _make_ldap_entry(
@@ -1657,7 +1681,11 @@ class TestSyncUsers:
 
 
 class _BadStr:
-    """Object whose str() raises ValueError (caught by the except clause)."""
+    """Object whose ``.value`` / ``str()`` raises ValueError (caught by the except clause)."""
+
+    @property
+    def value(self) -> str:
+        raise ValueError("bad entry value")
 
     def __str__(self) -> str:
         raise ValueError("bad entry value")

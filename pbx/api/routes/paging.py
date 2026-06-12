@@ -170,9 +170,7 @@ def handle_delete_paging_device(device_id: str) -> Response:
             return send_json({"error": "Device removal not supported"}, 501)
 
         if success:
-            return send_json(
-                {"success": True, "message": f"Paging device removed: {device_id}"}
-            )
+            return send_json({"success": True, "message": f"Paging device removed: {device_id}"})
         return send_json({"error": "Failed to remove paging device"}, 500)
     except Exception as e:
         return send_json({"error": str(e)}, 500)

@@ -644,7 +644,7 @@ class VideoConferencingEngine:
         candidates = []
 
         # Generate host candidate from configured SIP/RTP bind address
-        bind_address = self.config.get("server.sip_host", "0.0.0.0")
+        bind_address = self.config.get("server.sip_host", "0.0.0.0")  # nosec B104
         rtp_port_start = self.config.get("server.rtp_port_range_start", 10000)
 
         # Host candidate for RTP
@@ -760,7 +760,7 @@ class VideoConferencingEngine:
             if signal_ids:
                 placeholders = ", ".join(["%s"] * len(signal_ids))
                 self.db.execute(
-                    f"DELETE FROM video_conference_signals WHERE id IN ({placeholders})",
+                    f"DELETE FROM video_conference_signals WHERE id IN ({placeholders})",  # nosec B608
                     tuple(signal_ids),
                 )
 

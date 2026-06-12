@@ -159,7 +159,9 @@ class EmergencyHandler:
                 if message.body:
                     trunk_invite.body = message.body
                     trunk_invite.set_header("Content-type", "application/sdp")
-                    trunk_invite.set_header("Content-Length", str(len(message.body.encode("utf-8"))))
+                    trunk_invite.set_header(
+                        "Content-Length", str(len(message.body.encode("utf-8")))
+                    )
 
                 # Send to trunk
                 try:

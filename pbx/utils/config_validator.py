@@ -89,9 +89,7 @@ class ConfigValidator:
         db_type = db_config.get("type", "postgresql")
 
         if db_type != "postgresql":
-            self.errors.append(
-                f"Unsupported database type: '{db_type}'. PostgreSQL is required."
-            )
+            self.errors.append(f"Unsupported database type: '{db_type}'. PostgreSQL is required.")
             return
 
         # Check required PostgreSQL settings
@@ -115,8 +113,7 @@ class ConfigValidator:
         if password and not password.startswith("${"):
             # Password is hardcoded, not from env var
             self.warnings.append(
-                "Database password is hardcoded in config. "
-                "Recommend using environment variables."
+                "Database password is hardcoded in config. Recommend using environment variables."
             )
 
     def _validate_api_config(self) -> None:

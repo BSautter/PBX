@@ -119,7 +119,7 @@ class SDPSession:
                 for attr in media.get("attributes", []):
                     if attr.startswith("rtpmap:"):
                         # Format: "rtpmap:PT name/rate" or "rtpmap:PT name/rate/channels"
-                        rtpmap_value = attr[len("rtpmap:"):]
+                        rtpmap_value = attr[len("rtpmap:") :]
                         parts = rtpmap_value.split(None, 1)
                         if len(parts) == 2:
                             pt = parts[0]

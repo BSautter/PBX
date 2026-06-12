@@ -1129,7 +1129,6 @@ class TestWebRTCGatewayInitiateCall:
         gw, signaling, pbx_core = self._make_gateway_and_signaling()
         session = signaling.create_session("1001")
 
-
         mock_call = MagicMock()
         mock_call.caller_rtp = None
         mock_call.rtp_ports = None
@@ -1169,7 +1168,6 @@ class TestWebRTCGatewayInitiateCall:
     def test_initiate_call_verbose_logging_all_branches(self) -> None:
         gw, signaling, pbx_core = self._make_gateway_and_signaling(verbose=True)
         session = signaling.create_session("1001")
-
 
         mock_call = MagicMock()
         mock_call.caller_rtp = None
@@ -1248,7 +1246,6 @@ class TestWebRTCGatewayInitiateCallAutoAttendant:
     def test_auto_attendant_no_caller_rtp(self) -> None:
         gw, signaling, pbx_core = self._make_aa_setup()
         session = signaling.create_session("1001")
-
 
         mock_call = pbx_core.call_manager.create_call.return_value
         mock_call.caller_rtp = None

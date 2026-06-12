@@ -520,7 +520,7 @@ class EmergencyNotificationSystem:
                 body = f"""EMERGENCY NOTIFICATION
 
 type: {trigger_type}
-Time: {details.get('timestamp', datetime.now(UTC))}
+Time: {details.get("timestamp", datetime.now(UTC))}
 Contact: {contact.name}
 Priority: {contact.priority}
 

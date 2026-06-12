@@ -429,9 +429,7 @@ class VoicemailHandler:
             relay_info = pbx.rtp_relay.active_relays.get(call_id)
             if relay_info:
                 relay_info["handler"].stop()
-                pbx.logger.info(
-                    f"[VM IVR] Stopped RTP relay handler for IVR on call {call_id}"
-                )
+                pbx.logger.info(f"[VM IVR] Stopped RTP relay handler for IVR on call {call_id}")
 
             # Create RTP player for sending audio prompts to the caller
             # This sends voicemail prompts, menus, and messages to the user

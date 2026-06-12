@@ -256,9 +256,7 @@ class RFC2833Receiver:
             # Compute payload offset past CSRC entries and extension header
             payload_offset = 12 + cc * 4
             if has_extension and len(data) >= payload_offset + 4:
-                ext_length = struct.unpack(
-                    "!H", data[payload_offset + 2 : payload_offset + 4]
-                )[0]
+                ext_length = struct.unpack("!H", data[payload_offset + 2 : payload_offset + 4])[0]
                 payload_offset += 4 + ext_length * 4
 
             # Extract payload (RFC 2833 event)

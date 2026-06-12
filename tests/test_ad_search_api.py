@@ -55,5 +55,3 @@ def test_search_filter_includes_telephone_number() -> None:
     assert "attributes=['sAMAccountName', 'displayName', 'mail', 'telephoneNumber']" in source or (
         "attributes=" in source and "telephoneNumber" in source
     ), "search_users should retrieve telephoneNumber attribute"
-
-

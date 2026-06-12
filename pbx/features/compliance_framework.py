@@ -487,7 +487,9 @@ class SOC2ComplianceEngine:
             list of control dictionaries
         """
         try:
-            result = self.db.fetch_all("SELECT id, control_id, control_category, description, implementation_status, last_tested, test_results FROM soc2_controls ORDER BY control_id")
+            result = self.db.fetch_all(
+                "SELECT id, control_id, control_category, description, implementation_status, last_tested, test_results FROM soc2_controls ORDER BY control_id"
+            )
 
             controls = [
                 {

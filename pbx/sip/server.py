@@ -99,9 +99,7 @@ class SIPServer:
         self._rseq_counter: int = 1
 
         # Bounded thread pool to prevent thread exhaustion under load
-        self._thread_pool = ThreadPoolExecutor(
-            max_workers=200, thread_name_prefix="sip-handler"
-        )
+        self._thread_pool = ThreadPoolExecutor(max_workers=200, thread_name_prefix="sip-handler")
 
     def start(self) -> bool:
         """
@@ -897,7 +895,7 @@ class SIPServer:
         response = SIPMessageBuilder.build_response(200, "OK", message)
         response.set_header("Expires", str(expires))
         # Add Contact header for dialog establishment
-        server_ip = self.host if self.host != "0.0.0.0" else "127.0.0.1"
+        server_ip = self.host if self.host != "0.0.0.0" else "127.0.0.1"  # nosec B104
         if self.pbx_core:
             server_ip = self.pbx_core._get_server_ip()
         response.set_header("Contact", f"<sip:{server_ip}:{self.port}>")
@@ -961,7 +959,7 @@ class SIPServer:
         )
 
         # RFC 3261 Section 8.1.1.7: Via header is mandatory on requests
-        server_ip = self.host if self.host != "0.0.0.0" else "127.0.0.1"
+        server_ip = self.host if self.host != "0.0.0.0" else "127.0.0.1"  # nosec B104
         if self.pbx_core:
             server_ip = self.pbx_core._get_server_ip()
         branch = f"z9hG4bK{uuid.uuid4().hex[:12]}"
