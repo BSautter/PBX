@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+import unittest
 from unittest import TestCase, mock
 
 # Add project root to path
@@ -414,7 +415,7 @@ class TestPhoneRegistrationExceptions(TestCase):
         phones_db = RegisteredPhonesDB(db)
 
         # Register with a valid MAC
-        success, mac = phones_db.register_phone(
+        success, _mac = phones_db.register_phone(
             extension_number="1000",
             ip_address="192.168.1.100",
             mac_address="aa:bb:cc:dd:ee:ff",
