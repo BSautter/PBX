@@ -56,10 +56,13 @@ def test_verbose_logging_enabled() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
-    logger.addHandler(handler)
-    # Ensure INFO records reach the handler even if a prior test left the
-    # shared singleton logger at a higher level.
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
     logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
 
     signaling = WebRTCSignalingServer(config)
 
@@ -105,10 +108,13 @@ def test_verbose_logging_in_offer_handling() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
-    logger.addHandler(handler)
-    # Ensure INFO records reach the handler even if a prior test left the
-    # shared singleton logger at a higher level.
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
     logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
 
     signaling = WebRTCSignalingServer(config)
 
@@ -168,10 +174,13 @@ def test_gateway_verbose_logging() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
-    logger.addHandler(handler)
-    # Ensure INFO records reach the handler even if a prior test left the
-    # shared singleton logger at a higher level.
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
     logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
 
     gateway = WebRTCGateway(pbx_core)
 

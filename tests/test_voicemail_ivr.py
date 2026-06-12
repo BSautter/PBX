@@ -414,9 +414,12 @@ def test_debug_pin_logging_suppressed_when_disabled() -> None:
         log_capture = io.StringIO()
         handler = logging.StreamHandler(log_capture)
         handler.setLevel(logging.INFO)
-        ivr.logger.addHandler(handler)
-        # Force the level so INFO records aren't filtered by a polluted parent.
+        # Reset capture state so prior tests can't suppress these records.
+        ivr.logger.handlers.clear()
+        ivr.logger.filters.clear()
         ivr.logger.setLevel(logging.DEBUG)
+        ivr.logger.propagate = False
+        ivr.logger.addHandler(handler)
 
         # Enter PIN digits
         ivr.handle_dtmf("1")
@@ -479,9 +482,12 @@ def test_debug_pin_logging_emitted_when_enabled() -> None:
 
         # We need to get the VM_IVR logger to capture init warnings
         temp_logger = logging.getLogger("PBX.VM_IVR")
-        temp_logger.addHandler(handler)
-        # Force the level so records aren't filtered by a polluted parent.
+        # Reset capture state so prior tests can't suppress these records.
+        temp_logger.handlers.clear()
+        temp_logger.filters.clear()
         temp_logger.setLevel(logging.DEBUG)
+        temp_logger.propagate = False
+        temp_logger.addHandler(handler)
 
         ivr = voicemail.VoicemailIVR(vm_system, "1001")
         ivr.state = voicemail.VoicemailIVR.STATE_PIN_ENTRY
