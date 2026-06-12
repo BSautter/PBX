@@ -28,17 +28,42 @@ _mock_sip_message = MagicMock()
 _mock_sip_sdp = MagicMock()
 _mock_features_voicemail = MagicMock()
 
-# Insert into sys.modules BEFORE importing VoicemailHandler so that inline
-# ``from pbx.rtp.handler import ...`` inside the handler methods resolves
-# against the mock instead of trying to parse the real file.
-sys.modules.setdefault("pbx.rtp.handler", _mock_rtp_handler)
-sys.modules.setdefault("pbx.utils.audio", _mock_utils_audio)
-sys.modules.setdefault("pbx.utils.dtmf", _mock_utils_dtmf)
-sys.modules.setdefault("pbx.sip.message", _mock_sip_message)
-sys.modules.setdefault("pbx.sip.sdp", _mock_sip_sdp)
-sys.modules.setdefault("pbx.features.voicemail", _mock_features_voicemail)
-
+# The handler imports these modules lazily inside its methods, and
+# VoicemailHandler itself has no module-level dependency on them, so the mocks
+# are installed per-test by the autouse fixture below (and restored after)
+# rather than mutating sys.modules at import time.
 from pbx.core.voicemail_handler import VoicemailHandler
+
+_MOCK_MODULES = {
+    "pbx.rtp.handler": _mock_rtp_handler,
+    "pbx.utils.audio": _mock_utils_audio,
+    "pbx.utils.dtmf": _mock_utils_dtmf,
+    "pbx.sip.message": _mock_sip_message,
+    "pbx.sip.sdp": _mock_sip_sdp,
+    "pbx.features.voicemail": _mock_features_voicemail,
+}
+
+
+@pytest.fixture(autouse=True)
+def _install_mock_modules():
+    """Force the mock modules into sys.modules for each test, then restore.
+
+    The handler imports these lazily inside its methods, so the mocks must be
+    active at call time. setdefault at import time is a no-op once the real
+    modules are already imported (as they are in the full suite), so install
+    them per-test and restore the originals afterward to avoid polluting
+    other test modules.
+    """
+    originals = {name: sys.modules.get(name) for name in _MOCK_MODULES}
+    sys.modules.update(_MOCK_MODULES)
+    try:
+        yield
+    finally:
+        for name, original in originals.items():
+            if original is not None:
+                sys.modules[name] = original
+            else:
+                sys.modules.pop(name, None)
 
 
 def _make_pbx_core() -> MagicMock:
