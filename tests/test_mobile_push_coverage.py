@@ -297,18 +297,18 @@ class TestMobilePushNotifications:
                 break
         assert found_true, "PostgreSQL load should use WHERE enabled = TRUE"
 
-    def test_load_devices_sqlite_uses_1(self) -> None:
-        """SQLite path uses WHERE enabled = 1."""
+    def test_load_devices_sqlite_uses_true(self) -> None:
+        """SQLite path also uses WHERE enabled = TRUE (PostgreSQL-only now)."""
         db = self._make_database(db_type="sqlite")
         _instance = self._build_instance(enabled=False, database=db)
 
         cursor = db.connection.cursor.return_value
-        found_one = False
+        found_true = False
         for call in cursor.execute.call_args_list:
-            if call.args and "enabled = 1" in str(call.args[0]):
-                found_one = True
+            if call.args and "enabled = TRUE" in str(call.args[0]):
+                found_true = True
                 break
-        assert found_one, "SQLite load should use WHERE enabled = 1"
+        assert found_true, "Load should use WHERE enabled = TRUE"
 
     def test_load_devices_db_error(self) -> None:
         """Exception during load is caught and logged."""
@@ -352,7 +352,7 @@ class TestMobilePushNotifications:
         assert result is False
 
     def test_save_device_sqlite(self) -> None:
-        """SQLite save uses INSERT OR REPLACE."""
+        """SQLite save uses ON CONFLICT ... DO UPDATE (PostgreSQL-only now)."""
         db = self._make_database(db_type="sqlite")
         instance = self._build_instance(enabled=False, database=db)
 
@@ -365,7 +365,7 @@ class TestMobilePushNotifications:
         assert result is True
 
         sql_used = cursor.execute.call_args[0][0]
-        assert "INSERT OR REPLACE" in sql_used
+        assert "ON CONFLICT" in sql_used
         db.connection.commit.assert_called_once()
         cursor.close.assert_called_once()
 
@@ -413,7 +413,7 @@ class TestMobilePushNotifications:
         assert instance._remove_device_from_database("u1", "tok") is False
 
     def test_remove_device_sqlite(self) -> None:
-        """SQLite remove uses enabled = 0."""
+        """SQLite remove uses enabled = FALSE (PostgreSQL-only now)."""
         db = self._make_database(db_type="sqlite")
         instance = self._build_instance(enabled=False, database=db)
 
@@ -424,7 +424,7 @@ class TestMobilePushNotifications:
         assert result is True
 
         sql_used = cursor.execute.call_args[0][0]
-        assert "enabled = 0" in sql_used
+        assert "enabled = FALSE" in sql_used
 
     def test_remove_device_postgresql(self) -> None:
         """PostgreSQL remove uses enabled = FALSE."""
@@ -531,13 +531,13 @@ class TestMobilePushNotifications:
         assert params[4] == json.dumps({"type": "incoming_call"})
 
     def test_save_notification_db_error(self) -> None:
-        """Exception during save is caught and logged."""
+        """ValueError during save is caught and logged."""
         db = self._make_database()
         instance = self._build_instance(enabled=False, database=db)
 
         cursor = db.connection.cursor.return_value
         cursor.execute.reset_mock()
-        cursor.execute.side_effect = Exception("save fail")
+        cursor.execute.side_effect = ValueError("save fail")
 
         # Should not raise
         instance._save_notification_to_database("u1", "call", "T", "B", {}, True)
@@ -853,7 +853,7 @@ class TestMobilePushNotifications:
     # ------------------------------------------------------------------ #
 
     def test_send_notification_stub_mode_firebase_unavailable(self) -> None:
-        """When FIREBASE_AVAILABLE is False, returns stub_mode result."""
+        """When FIREBASE_AVAILABLE is False, returns queued result."""
         from pbx.features import mobile_push as mp_module
 
         self._ensure_firebase_attrs()
@@ -865,12 +865,12 @@ class TestMobilePushNotifications:
         try:
             result = instance._send_notification("u1", "Title", "Body")
             assert result["success"] is False
-            assert result["stub_mode"] is True
+            assert result["queued"] is True
         finally:
             mp_module.FIREBASE_AVAILABLE = original_flag
 
     def test_send_notification_stub_mode_no_firebase_app(self) -> None:
-        """When firebase_app is None but FIREBASE_AVAILABLE, returns stub."""
+        """When firebase_app is None but FIREBASE_AVAILABLE, returns queued."""
         from pbx.features import mobile_push as mp_module
 
         self._ensure_firebase_attrs()
@@ -882,7 +882,7 @@ class TestMobilePushNotifications:
         try:
             result = instance._send_notification("u1", "Title", "Body")
             assert result["success"] is False
-            assert result["stub_mode"] is True
+            assert result["queued"] is True
         finally:
             mp_module.FIREBASE_AVAILABLE = original_flag
 
@@ -1355,7 +1355,7 @@ class TestMobilePushNotifications:
         assert call_args[0][3]["type"] == "test"
 
     def test_send_test_notification_stub_mode(self) -> None:
-        """Test notification in stub mode returns stub result."""
+        """Test notification in stub mode returns queued result."""
         from pbx.features import mobile_push as mp_module
 
         self._ensure_firebase_attrs()
@@ -1366,7 +1366,7 @@ class TestMobilePushNotifications:
         mp_module.FIREBASE_AVAILABLE = False
         try:
             result = instance.send_test_notification("u1")
-            assert result["stub_mode"] is True
+            assert result["queued"] is True
         finally:
             mp_module.FIREBASE_AVAILABLE = original_flag
 

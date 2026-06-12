@@ -18,11 +18,12 @@ class TestSpeechAnalytics:
 
         class MockDB:
             def __init__(self) -> None:
-                self.db_type = "sqlite"
+                self.db_type = "postgresql"
                 self.conn = sqlite3.connect(":memory:")
                 self.enabled = True
 
             def execute(self, query: str, params: Any = None) -> list[Any]:
+                query = query.replace("%s", "?")
                 cursor = self.conn.cursor()
                 if params:
                     cursor.execute(query, params)

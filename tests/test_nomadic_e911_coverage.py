@@ -148,7 +148,7 @@ class TestUpdateLocation:
     def test_update_location_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
         mock_db.db_type = "sqlite"
-        mock_db.execute.side_effect = Exception("DB error")
+        mock_db.execute.side_effect = ValueError("DB error")
         engine = NomadicE911Engine(db_backend=mock_db, config={})
         result = engine.update_location("1001", {"street_address": "test"})
         assert result is False
@@ -280,7 +280,7 @@ class TestGetLocation:
     def test_get_location_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
         mock_db.db_type = "sqlite"
-        mock_db.execute.side_effect = Exception("Query failed")
+        mock_db.execute.side_effect = ValueError("Query failed")
         engine = NomadicE911Engine(db_backend=mock_db, config={})
         result = engine.get_location("1001")
         assert result is None
@@ -368,7 +368,7 @@ class TestDetectLocationByIp:
         mock_db.execute.side_effect = [
             [site_row],  # _find_site_by_ip query
             [],  # get_location inside update_location returns empty
-            Exception("Insert failed"),  # INSERT in update_location fails
+            ValueError("Insert failed"),  # INSERT in update_location fails
         ]
         engine = NomadicE911Engine(db_backend=mock_db, config={})
         result = engine.detect_location_by_ip("1001", "192.168.1.50")
@@ -453,7 +453,7 @@ class TestFindSiteByIp:
     @patch("pbx.features.nomadic_e911.get_logger")
     def test_find_site_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
-        mock_db.execute.side_effect = Exception("DB error")
+        mock_db.execute.side_effect = ValueError("DB error")
         engine = NomadicE911Engine(db_backend=mock_db, config={})
         result = engine._find_site_by_ip("10.0.0.5")
         assert result is None
@@ -585,7 +585,7 @@ class TestCreateSiteConfig:
     def test_create_site_db_error(self, mock_logger: MagicMock) -> None:
         mock_db = MagicMock()
         mock_db.db_type = "sqlite"
-        mock_db.execute.side_effect = Exception("Insert failed")
+        mock_db.execute.side_effect = ValueError("Insert failed")
         engine = NomadicE911Engine(db_backend=mock_db, config={})
         site_data = {
             "site_name": "Fail Office",

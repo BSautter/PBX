@@ -169,11 +169,10 @@ class TestRecordingAnnouncementsInit:
         first_execute_arg = mock_cursor.execute.call_args_list[0][0][0]
         assert "SERIAL PRIMARY KEY" in first_execute_arg
 
-    def test_init_schema_sqlite(self) -> None:
-        """Test schema initialization for sqlite"""
+    def test_init_schema_uses_serial_primary_key(self) -> None:
+        """Test schema initialization always uses SERIAL PRIMARY KEY (PostgreSQL)"""
         mock_db = MagicMock()
         mock_db.enabled = True
-        mock_db.db_type = "sqlite"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -186,7 +185,7 @@ class TestRecordingAnnouncementsInit:
             RecordingAnnouncements(config=config, database=mock_db)
 
         first_execute_arg = mock_cursor.execute.call_args_list[0][0][0]
-        assert "AUTOINCREMENT" in first_execute_arg
+        assert "SERIAL PRIMARY KEY" in first_execute_arg
 
     def test_init_schema_error_handling(self) -> None:
         """Test schema initialization error is handled gracefully"""
@@ -486,7 +485,7 @@ class TestRecordingAnnouncementsLogAnnouncement:
         mock_cursor.execute.assert_called_once()
         query = mock_cursor.execute.call_args[0][0]
         assert "INSERT INTO recording_announcements_log" in query
-        assert "?" in query
+        assert "%s" in query
         mock_db.connection.commit.assert_called_once()
         mock_cursor.close.assert_called_once()
 

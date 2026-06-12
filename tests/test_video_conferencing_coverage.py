@@ -164,7 +164,7 @@ class TestVideoConferencingCreateRoom:
 
     def test_create_room_db_error(self) -> None:
         """Test room creation with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.create_room({"room_name": "Error Room"})
 
@@ -264,7 +264,7 @@ class TestVideoConferencingJoinRoom:
 
     def test_join_room_db_error(self) -> None:
         """Test joining room with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.join_room(1, {"extension": "1001"})
 
@@ -403,7 +403,7 @@ class TestVideoConferencingGetRoom:
 
     def test_get_room_db_error(self) -> None:
         """Test getting room with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.get_room(1)
 
@@ -495,7 +495,7 @@ class TestVideoConferencingGetRoomParticipants:
 
     def test_get_participants_db_error(self) -> None:
         """Test getting participants with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.get_room_participants(1)
 
@@ -600,7 +600,7 @@ class TestVideoConferencingUpdateCodecConfig:
 
     def test_update_codec_db_error(self) -> None:
         """Test codec update with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.update_codec_config({"codec_name": "H264"})
 
@@ -676,7 +676,7 @@ class TestVideoConferencingGetAllRooms:
 
     def test_get_all_rooms_db_error(self) -> None:
         """Test getting all rooms with database error"""
-        self.db.execute.side_effect = Exception("DB error")
+        self.db.execute.side_effect = ValueError("DB error")
 
         result = self.engine.get_all_rooms()
 
@@ -689,7 +689,7 @@ class TestVideoConferencingGetAllRooms:
         self.engine.get_all_rooms()
 
         self.db.execute.assert_called_once_with(
-            "SELECT * FROM video_conference_rooms ORDER BY created_at DESC"
+            "SELECT id, room_name, owner_extension, max_participants, enable_4k, enable_screen_share, recording_enabled, password_hash, created_at FROM video_conference_rooms ORDER BY created_at DESC"
         )
 
 
@@ -710,11 +710,11 @@ class TestVideoConferencingEnableScreenShare:
         result = self.engine.enable_screen_share(1, "1001")
 
         assert result is True
-        self.db.execute.assert_called_once()
-        call_args = self.db.execute.call_args[0][1]
-        assert call_args[0] is True
-        assert call_args[1] == 1
-        assert call_args[2] == "1001"
+        # First call is the UPDATE for screen_sharing flag
+        first_call_args = self.db.execute.call_args_list[0][0][1]
+        assert first_call_args[0] is True
+        assert first_call_args[1] == 1
+        assert first_call_args[2] == "1001"
 
     def test_enable_screen_share_db_error(self) -> None:
         """Test enabling screen sharing with database error"""
@@ -864,8 +864,8 @@ class TestVideoConferencingHandleWebrtcOffer:
 
     def test_handle_webrtc_offer_returns_ice_candidates(self) -> None:
         """Test that ICE candidates are returned in the offer response"""
-        self.config["sip.bind_address"] = "192.168.1.100"
-        self.config["rtp.port_start"] = 20000
+        self.config["server.sip_host"] = "192.168.1.100"
+        self.config["server.rtp_port_range_start"] = 20000
 
         result = self.engine.handle_webrtc_offer(1, "1001", self.sample_sdp_offer)
 
@@ -1290,7 +1290,7 @@ class TestVideoConferencingGenerateIceCandidates:
 
     def test_generate_ice_candidates_custom_bind_address(self) -> None:
         """Test ICE candidate generation with custom bind address"""
-        self.config["sip.bind_address"] = "192.168.1.50"
+        self.config["server.sip_host"] = "192.168.1.50"
 
         result = self.engine._generate_ice_candidates(1)
 
@@ -1298,7 +1298,7 @@ class TestVideoConferencingGenerateIceCandidates:
 
     def test_generate_ice_candidates_custom_rtp_port(self) -> None:
         """Test ICE candidate generation with custom RTP port start"""
-        self.config["rtp.port_start"] = 30000
+        self.config["server.rtp_port_range_start"] = 30000
 
         result = self.engine._generate_ice_candidates(5)
 
@@ -1318,7 +1318,7 @@ class TestVideoConferencingGenerateIceCandidates:
     def test_generate_ice_candidates_stun_srflx_port_offset(self) -> None:
         """Test STUN srflx candidate uses correct port offset"""
         self.config["webrtc.stun_server"] = "stun:stun.example.com:3478"
-        self.config["rtp.port_start"] = 20000
+        self.config["server.rtp_port_range_start"] = 20000
 
         result = self.engine._generate_ice_candidates(3)
 
