@@ -419,6 +419,8 @@ class TestLoadBuiltinTemplates:
         expected = [
             ("zultys", "zip33g"),
             ("zultys", "zip37g"),
+            ("yealink", "t23g"),
+            ("yealink", "t33g"),
             ("yealink", "t46s"),
             ("yealink", "t28g"),
             ("polycom", "vvx450"),
@@ -436,7 +438,7 @@ class TestLoadBuiltinTemplates:
 
     def test_builtin_template_count(self) -> None:
         prov = _make_provisioning()
-        assert len(prov.templates) == 13
+        assert len(prov.templates) == 15
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +453,7 @@ class TestLoadCustomTemplates:
     def test_no_custom_dir_configured(self) -> None:
         prov = _make_provisioning()
         # No custom dir → no error, only built-ins
-        assert len(prov.templates) == 13
+        assert len(prov.templates) == 15
 
     @patch("pbx.features.phone_provisioning.get_logger")
     def test_custom_dir_with_template_files(self, mock_gl) -> None:
@@ -1199,7 +1201,7 @@ class TestListAllTemplates:
     def test_list_all_templates(self) -> None:
         prov = _make_provisioning()
         templates = prov.list_all_templates()
-        assert len(templates) == 13
+        assert len(templates) == 15
         # Should be sorted by vendor, model
         vendors_models = [(t["vendor"], t["model"]) for t in templates]
         assert vendors_models == sorted(vendors_models)
@@ -1474,13 +1476,13 @@ class TestReloadTemplates:
     def test_reload_success(self) -> None:
         prov = _make_provisioning()
         prov.add_template("custom", "phone", "data")
-        assert len(prov.templates) == 14
+        assert len(prov.templates) == 16
         success, msg, stats = prov.reload_templates()
         assert success is True
         assert "successfully" in msg.lower()
         # custom template should be gone after reload (only built-ins reload)
-        assert len(prov.templates) == 13
-        assert stats["total_templates"] == 13
+        assert len(prov.templates) == 15
+        assert stats["total_templates"] == 15
         assert stats["vendors"] > 0
 
     def test_reload_restores_templates(self) -> None:
@@ -1489,4 +1491,4 @@ class TestReloadTemplates:
         assert len(prov.templates) == 0
         success, _, _ = prov.reload_templates()
         assert success is True
-        assert len(prov.templates) == 13
+        assert len(prov.templates) == 15
