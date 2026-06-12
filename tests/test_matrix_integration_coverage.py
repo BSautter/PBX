@@ -1025,22 +1025,22 @@ class TestGetRoomMembers:
                 {
                     "type": "m.room.member",
                     "state_key": "@alice:example.com",
-                    "membership": "join",
+                    "content": {"membership": "join"},
                 },
                 {
                     "type": "m.room.member",
                     "state_key": "@bob:example.com",
-                    "membership": "join",
+                    "content": {"membership": "join"},
                 },
                 {
                     "type": "m.room.member",
                     "state_key": "@charlie:example.com",
-                    "membership": "leave",
+                    "content": {"membership": "leave"},
                 },
                 {
                     "type": "m.room.other_event",
                     "state_key": "@other:example.com",
-                    "membership": "join",
+                    "content": {"membership": "join"},
                 },
             ]
         }

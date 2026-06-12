@@ -347,7 +347,7 @@ class LeastCostRouting:
             )
 
             self.logger.debug(f"Time-based rate saved to database: {name}")
-        except (KeyError, TypeError, ValueError) as e:
+        except Exception as e:
             self.logger.error(f"Error saving time-based rate to database: {e}")
 
     def _delete_all_rates_from_db(self) -> None:
