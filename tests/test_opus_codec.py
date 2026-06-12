@@ -4,6 +4,8 @@ Tests for Opus Codec Support
 
 from typing import Any
 
+import pytest
+
 from pbx.features.opus_codec import OpusCodec, OpusCodecManager
 
 
@@ -346,7 +348,7 @@ class TestOpusCodecWithLibrary:
 
         # Skip tests if library not available
         if not self.codec.opus_available:
-            self.skipTest("opuslib not available")
+            pytest.skip("opuslib not available")
 
     def test_encoder_creation(self) -> None:
         """Test actual encoder creation"""

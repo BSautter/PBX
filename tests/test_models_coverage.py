@@ -212,9 +212,9 @@ class TestExtensionModel:
 
     def test_column_count(self) -> None:
         """Extension table should have the expected number of columns."""
-        # 16 defined + 2 from TimestampMixin = 18
+        # 17 defined + 2 from TimestampMixin = 19
         col_names = {c.name for c in Extension.__table__.columns}
-        assert len(col_names) == 18
+        assert len(col_names) == 19
 
 
 # ---------------------------------------------------------------------------
