@@ -7,7 +7,6 @@ Tests that calls route to voicemail and can record messages
 import shutil
 import tempfile
 import time
-from unittest.mock import patch
 
 from pbx.core.call import Call, CallState
 from pbx.core.pbx import PBXCore
@@ -38,8 +37,7 @@ def test_wav_file_builder() -> None:
     """Test WAV file building"""
 
     # Create a temp config
-    with patch("pbx.core.pbx.FeatureInitializer.initialize"):
-        pbx = PBXCore("config.yml")
+    pbx = PBXCore("config.yml")
 
     # Test with sample audio data
     sample_audio = b"\x00" * 1000  # 1000 bytes of audio
@@ -59,8 +57,7 @@ def test_voicemail_recording_timer() -> None:
     """Test that voicemail recording has proper timer setup"""
 
     # Create PBX instance
-    with patch("pbx.core.pbx.FeatureInitializer.initialize"):
-        pbx = PBXCore("config.yml")
+    pbx = PBXCore("config.yml")
 
     # Create a mock call
     call = Call("test-call-123", "1001", "1002")
@@ -148,8 +145,7 @@ def test_voicemail_save_on_hangup() -> None:
         call.voicemail_recorder = recorder
 
         # Create PBX and set voicemail system
-        with patch("pbx.core.pbx.FeatureInitializer.initialize"):
-            pbx = PBXCore("config.yml")
+        pbx = PBXCore("config.yml")
         pbx.voicemail_system = vm_system
         pbx.call_manager.active_calls[call.call_id] = call
 
@@ -172,8 +168,7 @@ def test_no_answer_answers_call() -> None:
     """Test that no-answer handler answers the call instead of sending busy"""
 
     # Create PBX instance
-    with patch("pbx.core.pbx.FeatureInitializer.initialize"):
-        pbx = PBXCore("config.yml")
+    pbx = PBXCore("config.yml")
 
     # Create a mock call
     call = Call("test-call-789", "1001", "1002")
