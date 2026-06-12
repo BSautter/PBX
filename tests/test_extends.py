@@ -11,9 +11,9 @@ import signal
 import sys
 import threading
 import time
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-import unittest
 from unittest import TestCase, mock
 
 # Add project root to path
