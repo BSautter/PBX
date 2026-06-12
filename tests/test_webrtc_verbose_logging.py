@@ -57,6 +57,9 @@ def test_verbose_logging_enabled() -> bool:
 
     logger = get_logger()
     logger.addHandler(handler)
+    # Ensure INFO records reach the handler even if a prior test left the
+    # shared singleton logger at a higher level.
+    logger.setLevel(logging.INFO)
 
     signaling = WebRTCSignalingServer(config)
 
@@ -103,6 +106,9 @@ def test_verbose_logging_in_offer_handling() -> bool:
 
     logger = get_logger()
     logger.addHandler(handler)
+    # Ensure INFO records reach the handler even if a prior test left the
+    # shared singleton logger at a higher level.
+    logger.setLevel(logging.INFO)
 
     signaling = WebRTCSignalingServer(config)
 
@@ -163,6 +169,9 @@ def test_gateway_verbose_logging() -> bool:
 
     logger = get_logger()
     logger.addHandler(handler)
+    # Ensure INFO records reach the handler even if a prior test left the
+    # shared singleton logger at a higher level.
+    logger.setLevel(logging.INFO)
 
     gateway = WebRTCGateway(pbx_core)
 

@@ -415,6 +415,8 @@ def test_debug_pin_logging_suppressed_when_disabled() -> None:
         handler = logging.StreamHandler(log_capture)
         handler.setLevel(logging.INFO)
         ivr.logger.addHandler(handler)
+        # Force the level so INFO records aren't filtered by a polluted parent.
+        ivr.logger.setLevel(logging.DEBUG)
 
         # Enter PIN digits
         ivr.handle_dtmf("1")
@@ -478,6 +480,8 @@ def test_debug_pin_logging_emitted_when_enabled() -> None:
         # We need to get the VM_IVR logger to capture init warnings
         temp_logger = logging.getLogger("PBX.VM_IVR")
         temp_logger.addHandler(handler)
+        # Force the level so records aren't filtered by a polluted parent.
+        temp_logger.setLevel(logging.DEBUG)
 
         ivr = voicemail.VoicemailIVR(vm_system, "1001")
         ivr.state = voicemail.VoicemailIVR.STATE_PIN_ENTRY
