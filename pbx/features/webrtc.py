@@ -1794,6 +1794,7 @@ class WebRTCGateway:
                     self.pbx_core._call_router._handle_no_answer,
                     args=(call_id,),
                 )
+                call.no_answer_timer.daemon = True
                 call.no_answer_timer.start()
             elif is_valid_dialplan:
                 # Virtual extension (auto attendant, voicemail, paging, etc.)

@@ -447,6 +447,7 @@ class CallRouter:
         call.no_answer_timer = threading.Timer(
             no_answer_timeout, self._handle_no_answer, args=(call_id,)
         )
+        call.no_answer_timer.daemon = True
         call.no_answer_timer.start()
         pbx.logger.info(f"Started no-answer timer ({no_answer_timeout}s) for call {call_id}")
 
@@ -758,6 +759,7 @@ class CallRouter:
                     pbx._voicemail_handler.complete_voicemail_recording,
                     args=(call_id,),
                 )
+                voicemail_timer.daemon = True
                 voicemail_timer.start()
                 call.voicemail_timer = voicemail_timer
 
