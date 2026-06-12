@@ -448,7 +448,7 @@ class TestCallQualityPredictionDatabaseGetActiveAlerts:
         assert len(result) == 1
         assert result[0]["alert_type"] == "high_jitter"
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "acknowledged = 0" in sql
+        assert "acknowledged = FALSE" in sql
 
     def test_get_active_alerts_postgresql(self) -> None:
         """Test getting active alerts with PostgreSQL backend."""
@@ -487,7 +487,7 @@ class TestCallQualityPredictionDatabaseAcknowledgeAlert:
         self.db.acknowledge_alert(42)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "acknowledged = 1" in sql
+        assert "acknowledged = TRUE" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params == (42,)
         self.mock_db.connection.commit.assert_called_once()
@@ -535,7 +535,8 @@ class TestCallQualityPredictionDatabaseUpdateDailyTrends:
         self.db.update_daily_trends("sip:1001@pbx.local", metrics)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "INSERT OR REPLACE" in sql
+        assert "INSERT INTO quality_trends" in sql
+        assert "ON CONFLICT" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[0] == "sip:1001@pbx.local"
         assert params[2] == 4.0
@@ -635,15 +636,15 @@ class TestCallQualityPredictionDatabaseGetStatistics:
         assert result["avg_mos_24h"] == 3.9
 
     def test_get_statistics_sqlite_queries(self) -> None:
-        """Test statistics uses correct SQLite queries."""
+        """Test statistics uses correct PostgreSQL queries."""
         self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchone.side_effect = [(0,), (0,), (0,), (None,)]
         self.db.get_statistics()
         calls = self.mock_cursor.execute.call_args_list
         sql_texts = [call[0][0] for call in calls]
-        assert any("alert = 1" in sql for sql in sql_texts)
-        assert any("acknowledged = 0" in sql for sql in sql_texts)
-        assert any("datetime('now', '-24 hours')" in sql for sql in sql_texts)
+        assert any("alert = TRUE" in sql for sql in sql_texts)
+        assert any("acknowledged = FALSE" in sql for sql in sql_texts)
+        assert any("NOW()" in sql for sql in sql_texts)
 
     def test_get_statistics_postgresql_queries(self) -> None:
         """Test statistics uses correct PostgreSQL queries."""

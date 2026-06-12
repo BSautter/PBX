@@ -629,7 +629,7 @@ class TestAnalyzeSentiment:
 
         # Mock _transcribe to return positive text
         analytics._transcribe = MagicMock(
-            return_value={"text": "thank you very much that was excellent and wonderful"}
+            return_value={"transcript": "thank you very much that was excellent and wonderful"}
         )
 
         # Mock spaCy NLP pipeline
@@ -666,7 +666,7 @@ class TestAnalyzeSentiment:
         analytics.vosk_model = MagicMock()
 
         analytics._transcribe = MagicMock(
-            return_value={"text": "angry upset frustrated disappointed terrible"}
+            return_value={"transcript": "angry upset frustrated disappointed terrible"}
         )
 
         mock_nlp = MagicMock()
@@ -691,7 +691,7 @@ class TestAnalyzeSentiment:
         analytics = _build_analytics()
         analytics.vosk_model = MagicMock()
 
-        analytics._transcribe = MagicMock(return_value={"text": "hello goodbye yes no"})
+        analytics._transcribe = MagicMock(return_value={"transcript": "hello goodbye yes no"})
 
         mock_nlp = MagicMock()
         mock_tokens = []
@@ -715,7 +715,7 @@ class TestAnalyzeSentiment:
         analytics = _build_analytics()
         analytics.vosk_model = MagicMock()
 
-        analytics._transcribe = MagicMock(return_value={"text": "thank you"})
+        analytics._transcribe = MagicMock(return_value={"transcript": "thank you"})
 
         mock_nlp = MagicMock(side_effect=RuntimeError("spacy error"))
         analytics.spacy_nlp = mock_nlp
@@ -732,7 +732,7 @@ class TestAnalyzeSentiment:
         analytics.spacy_nlp = None
 
         analytics._transcribe = MagicMock(
-            return_value={"text": "thank appreciate excellent great wonderful"}
+            return_value={"transcript": "thank appreciate excellent great wonderful"}
         )
 
         result = analytics._analyze_sentiment("/audio.wav")
@@ -746,7 +746,9 @@ class TestAnalyzeSentiment:
         analytics.spacy_nlp = None
 
         analytics._transcribe = MagicMock(
-            return_value={"text": "angry upset frustrated disappointed terrible awful horrible bad"}
+            return_value={
+                "transcript": "angry upset frustrated disappointed terrible awful horrible bad"
+            }
         )
 
         result = analytics._analyze_sentiment("/audio.wav")
@@ -760,7 +762,7 @@ class TestAnalyzeSentiment:
         analytics.spacy_nlp = None
 
         analytics._transcribe = MagicMock(
-            return_value={"text": "the quick brown fox jumps over the lazy dog"}
+            return_value={"transcript": "the quick brown fox jumps over the lazy dog"}
         )
 
         result = analytics._analyze_sentiment("/audio.wav")
@@ -774,7 +776,7 @@ class TestAnalyzeSentiment:
         analytics.vosk_model = MagicMock()
         analytics.spacy_nlp = None
 
-        analytics._transcribe = MagicMock(return_value={"text": "thank angry"})
+        analytics._transcribe = MagicMock(return_value={"transcript": "thank angry"})
 
         result = analytics._analyze_sentiment("/audio.wav")
 
@@ -1708,7 +1710,7 @@ class TestEdgeCases:
     def test_sentiment_spacy_with_non_alpha_tokens(self) -> None:
         analytics = _build_analytics()
         analytics.vosk_model = MagicMock()
-        analytics._transcribe = MagicMock(return_value={"text": "thank 123 !!! excellent"})
+        analytics._transcribe = MagicMock(return_value={"transcript": "thank 123 !!! excellent"})
 
         mock_nlp = MagicMock()
         mock_tokens = []
