@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 from pbx.core.call import Call
 from pbx.core.pbx import PBXCore
@@ -107,7 +108,8 @@ def test_voicemail_access_plays_messages() -> None:
         audio_data = b"\x7f" * 1600  # 0.2 seconds of near-silence
 
         # Build WAV file
-        pbx = PBXCore("config.yml")
+        with patch("pbx.core.pbx.FeatureInitializer.initialize"):
+            pbx = PBXCore("config.yml")
         wav_data = pbx._build_wav_file(audio_data)
 
         # Save voicemail

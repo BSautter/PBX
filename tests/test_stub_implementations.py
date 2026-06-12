@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from pbx.features.operator_console import OperatorConsole
 from pbx.features.voicemail import VoicemailIVR, VoicemailSystem
 from pbx.utils.config import Config
@@ -341,7 +343,8 @@ def test_database_backend() -> None:
 
         # Test database connection
         db = DatabaseBackend(config)
-        assert db.connect()
+        if not db.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
         assert db.enabled
 
         # Test table creation

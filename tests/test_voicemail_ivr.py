@@ -13,6 +13,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from pbx.features.voicemail import VoicemailIVR, VoicemailSystem
 from pbx.utils.audio import generate_voice_prompt
 from pbx.utils.config import Config
@@ -568,7 +570,8 @@ def test_voicemail_pin_from_database() -> None:
 
         # Initialize database
         db = DatabaseBackend(config)
-        assert db.connect() is True
+        if not db.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
         assert db.create_tables() is True
 
         # Add extension with voicemail PIN to database

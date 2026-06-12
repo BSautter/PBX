@@ -9,6 +9,7 @@ Test voicemail fixes for:
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from pbx.core.pbx import PBXCore
 from pbx.features.email_notification import EmailNotifier
@@ -87,7 +88,8 @@ def test_voicemail_access_checks_registry() -> None:
 
     try:
         # Create PBX instance
-        pbx = PBXCore("config.yml")
+        with patch("pbx.core.pbx.FeatureInitializer.initialize"):
+            pbx = PBXCore("config.yml")
 
         # Get an extension from the registry
         extensions = pbx.extension_registry.get_all()
