@@ -223,7 +223,7 @@ class TestHandleEmergencyCall:
             "1001", "911", "call-1", message, ("192.168.1.10", 5060)
         )
         assert result is True
-        mock_handler.set_endpoint1.assert_called_once_with(("192.168.1.10", 30000))
+        mock_handler.set_endpoints.assert_called_once_with(("192.168.1.10", 30000), None)
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
@@ -255,7 +255,7 @@ class TestHandleEmergencyCall:
     def test_rtp_relay_allocation_failure(
         self, mock_sip_builder, mock_sdp_builder, mock_sdp_session
     ) -> None:
-        """If RTP relay allocation fails, should still handle the call (uses fallback port)."""
+        """If RTP relay allocation fails, call is ended and False returned."""
         pbx = _make_pbx_core()
         handler = EmergencyHandler(pbx)
         message = _make_message()
@@ -268,8 +268,8 @@ class TestHandleEmergencyCall:
         result = handler.handle_emergency_call(
             "1001", "911", "call-1", message, ("192.168.1.10", 5060)
         )
-        assert result is True
-        # When rtp_ports is None, fallback port 10000 is used
+        assert result is False
+        pbx.call_manager.end_call.assert_called_once_with("call-1")
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
@@ -277,7 +277,7 @@ class TestHandleEmergencyCall:
     def test_caller_codecs_from_sdp(
         self, mock_sip_builder, mock_sdp_builder, mock_sdp_session
     ) -> None:
-        """When caller SDP has formats, those should be used as codecs."""
+        """When caller SDP has formats, those should be stored in call.caller_rtp."""
         pbx = _make_pbx_core()
         handler = EmergencyHandler(pbx)
         message = _make_message()
@@ -295,18 +295,18 @@ class TestHandleEmergencyCall:
         pbx.rtp_relay.allocate_relay.return_value = (20000, 20001)
         pbx.rtp_relay.active_relays = {}
 
+        call_obj = MagicMock()
+        pbx.call_manager.create_call.return_value = call_obj
+
         result = handler.handle_emergency_call(
             "1001", "911", "call-1", message, ("192.168.1.10", 5060)
         )
         assert result is True
-        # SDPBuilder.build_audio_sdp should be called with the caller's codecs
-        mock_sdp_builder.build_audio_sdp.assert_called_once()
-        call_kwargs = mock_sdp_builder.build_audio_sdp.call_args
-        assert (
-            call_kwargs[1]["codecs"] == ["0", "8", "9"]
-            or call_kwargs[0][3] == ["0", "8", "9"]
-            or True
-        )
+        assert call_obj.caller_rtp == {
+            "address": "192.168.1.10",
+            "port": 30000,
+            "formats": ["0", "8", "9"],
+        }
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
@@ -314,7 +314,7 @@ class TestHandleEmergencyCall:
     def test_default_codecs_when_no_sdp(
         self, mock_sip_builder, mock_sdp_builder, mock_sdp_session
     ) -> None:
-        """When no caller SDP, default codecs ['0', '8'] should be used."""
+        """When no caller SDP, caller_rtp should be None."""
         pbx = _make_pbx_core()
         handler = EmergencyHandler(pbx)
         message = _make_message(with_body=False)
@@ -324,11 +324,14 @@ class TestHandleEmergencyCall:
         pbx.rtp_relay.allocate_relay.return_value = (20000, 20001)
         pbx.rtp_relay.active_relays = {}
 
+        call_obj = MagicMock()
+        pbx.call_manager.create_call.return_value = call_obj
+
         result = handler.handle_emergency_call(
             "1001", "911", "call-1", message, ("192.168.1.10", 5060)
         )
         assert result is True
-        mock_sdp_builder.build_audio_sdp.assert_called_once()
+        assert call_obj.caller_rtp is None
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
@@ -373,10 +376,10 @@ class TestHandleEmergencyCall:
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
     @patch("pbx.sip.message.SIPMessageBuilder")
-    def test_200_ok_sent_to_caller(
+    def test_100_trying_sent_to_caller(
         self, mock_sip_builder, mock_sdp_builder, mock_sdp_session
     ) -> None:
-        """200 OK should be sent back to the caller address."""
+        """100 Trying should be sent back to the caller address."""
         pbx = _make_pbx_core()
         handler = EmergencyHandler(pbx)
         message = _make_message()
@@ -389,9 +392,10 @@ class TestHandleEmergencyCall:
         from_addr = ("192.168.1.10", 5060)
         handler.handle_emergency_call("1001", "911", "call-1", message, from_addr)
 
-        pbx.sip_server._send_message.assert_called_once()
-        send_args = pbx.sip_server._send_message.call_args
-        assert send_args[0][1] == from_addr
+        # _send_message called twice: trunk INVITE + 100 Trying to caller
+        assert pbx.sip_server._send_message.call_count == 2
+        last_call_args = pbx.sip_server._send_message.call_args_list[-1]
+        assert last_call_args[0][1] == from_addr
 
     @patch("pbx.sip.sdp.SDPSession")
     @patch("pbx.sip.sdp.SDPBuilder")
