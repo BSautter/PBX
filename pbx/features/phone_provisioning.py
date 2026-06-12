@@ -2872,7 +2872,7 @@ P2351 = 1
             list of vendor names
         """
         vendors = set()
-        for (vendor, _model), _template in self.templates.items():
+        for vendor, _model in self.templates:
             vendors.add(vendor)
         return sorted(vendors)
 
@@ -2889,13 +2889,13 @@ P2351 = 1
         if vendor:
             models = []
             vendor = vendor.lower()
-            for (v, m), _template in self.templates.items():
+            for v, m in self.templates:
                 if v == vendor:
                     models.append(m)
             return sorted(models)
         # Return dict of vendor -> models
         result = {}
-        for (v, m), _template in self.templates.items():
+        for v, m in self.templates:
             if v not in result:
                 result[v] = []
             result[v].append(m)

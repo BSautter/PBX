@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pbx.sip.transaction import TIMER_B, InviteClientTransaction, T1, T2
+from pbx.sip.transaction import T1, T2, TIMER_B, InviteClientTransaction
 
 
 @pytest.mark.unit

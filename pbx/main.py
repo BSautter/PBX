@@ -5,9 +5,15 @@ Provides the main() function used by the pbx-server console script
 defined in pyproject.toml.
 """
 
+from __future__ import annotations
+
 import logging
 import sys
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pbx.core.pbx import PBXCore
 
 logger = logging.getLogger(__name__)
 

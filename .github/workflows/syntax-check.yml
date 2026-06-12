@@ -108,24 +108,13 @@ jobs:
           error_count = 0
           file_count = 0
 
-          for yaml_file in Path('.').rglob('*.yml'):
+          for yaml_file in [*Path('.').rglob('*.yml'), *Path('.').rglob('*.yaml')]:
               if '.git' in yaml_file.parts:
                   continue
               file_count += 1
               try:
                   with open(yaml_file, 'r') as f:
-                      yaml.safe_load(f)
-              except yaml.YAMLError as e:
-                  print(f"YAML error in {yaml_file}: {e}")
-                  error_count += 1
-
-          for yaml_file in Path('.').rglob('*.yaml'):
-              if '.git' in yaml_file.parts:
-                  continue
-              file_count += 1
-              try:
-                  with open(yaml_file, 'r') as f:
-                      yaml.safe_load(f)
+                      list(yaml.safe_load_all(f))
               except yaml.YAMLError as e:
                   print(f"YAML error in {yaml_file}: {e}")
                   error_count += 1
