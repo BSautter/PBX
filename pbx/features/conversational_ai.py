@@ -456,7 +456,8 @@ class ConversationalAI:
                 for keywords, intent in nltk_intent_patterns:
                     if any(keyword in lemmatized for keyword in keywords):
                         return intent
-            except (KeyError, TypeError, ValueError) as e:
+            except (KeyError, TypeError, ValueError, LookupError) as e:
+                # LookupError: NLTK data (e.g. punkt_tab) not downloaded.
                 self.logger.debug(f"NLTK intent detection failed: {e}, falling back to patterns")
 
         # Standard intent patterns with priority (most specific first)

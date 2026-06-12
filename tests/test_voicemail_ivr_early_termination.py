@@ -36,7 +36,7 @@ class TestVoicemailIVREarlyTermination:
 
         # Mock the necessary components
         with (
-            patch("pbx.core.pbx.VoicemailSystem") as mock_voicemail_system_cls,
+            patch("pbx.features.voicemail.VoicemailSystem") as mock_voicemail_system_cls,
             patch("pbx.rtp.handler.RTPPlayer") as mock_rtp_player_cls,
             patch("pbx.rtp.handler.RTPRecorder") as mock_rtp_recorder_cls,
         ):
@@ -130,7 +130,7 @@ class TestVoicemailIVREarlyTermination:
         from pbx.core.pbx import PBXCore
 
         with (
-            patch("pbx.core.pbx.VoicemailSystem") as mock_voicemail_system_cls,
+            patch("pbx.features.voicemail.VoicemailSystem") as mock_voicemail_system_cls,
             patch("pbx.rtp.handler.RTPPlayer") as mock_rtp_player_cls,
             patch("pbx.rtp.handler.RTPRecorder") as mock_rtp_recorder_cls,
         ):
