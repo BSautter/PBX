@@ -10,17 +10,22 @@ from pbx.features.click_to_dial import ClickToDialEngine
 
 
 class MockDB:
-    """Mock database for testing"""
+    """SQLite-backed mock for DatabaseBackend, translating %s -> ? for tests."""
 
     def __init__(self) -> None:
-        self.db_type = "sqlite"
+        self.db_type = "postgresql"
         self.conn = sqlite3.connect(":memory:")
         self.enabled = True
         self._init_tables()
 
+    @staticmethod
+    def _convert(sql: str) -> str:
+        return sql.replace("%s", "?").replace(
+            "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT"
+        )
+
     def _init_tables(self) -> None:
         """Initialize test tables"""
-        # Click-to-dial configs
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS click_to_dial_configs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,11 +33,11 @@ class MockDB:
                 enabled INTEGER DEFAULT 1,
                 default_caller_id TEXT,
                 auto_answer INTEGER DEFAULT 0,
-                browser_notification INTEGER DEFAULT 1
+                browser_notification INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # Click-to-dial history
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS click_to_dial_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,12 +53,13 @@ class MockDB:
         self.conn.commit()
 
     def execute(self, query: str, params: Any = None) -> list[Any]:
-        """Execute query"""
+        """Execute query with %s -> ? translation."""
         cursor = self.conn.cursor()
+        sql = self._convert(query)
         if params:
-            cursor.execute(query, params)
+            cursor.execute(sql, params)
         else:
-            cursor.execute(query)
+            cursor.execute(sql)
         self.conn.commit()
         return cursor.fetchall()
 
