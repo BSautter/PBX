@@ -336,14 +336,10 @@ class TestAutoAttendantSubmenu:
 
     def test_backward_compatibility_with_legacy_menu(self) -> None:
         """Test that legacy menu_options still work"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO auto_attendant_menu_options (digit, destination, description) VALUES (?, ?, ?)",
+        self.aa.db.execute(
+            "INSERT INTO auto_attendant_menu_options (digit, destination, description) VALUES (%s, %s, %s)",
             ("5", "1005", "Legacy Option"),
         )
-        conn.commit()
-        conn.close()
 
         # Reload menu options
         self.aa._load_menu_options_from_db()

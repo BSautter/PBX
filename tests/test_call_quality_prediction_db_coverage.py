@@ -56,9 +56,8 @@ class TestCallQualityPredictionDatabaseCreateTables:
         assert self.mock_cursor.execute.call_count == 4
         self.mock_db.connection.commit.assert_called_once()
 
-    def test_create_tables_sqlite_sql_content(self) -> None:
-        """Test SQLite SQL contains correct syntax."""
-        self.mock_db.db_type = "sqlite"
+    def test_create_tables_sql_content(self) -> None:
+        """Test SQL contains correct table names and PostgreSQL syntax."""
         self.db.create_tables()
         calls = self.mock_cursor.execute.call_args_list
         sql_texts = [call[0][0] for call in calls]
@@ -66,7 +65,7 @@ class TestCallQualityPredictionDatabaseCreateTables:
         assert any("quality_predictions" in sql for sql in sql_texts)
         assert any("quality_alerts" in sql for sql in sql_texts)
         assert any("quality_trends" in sql for sql in sql_texts)
-        assert any("AUTOINCREMENT" in sql for sql in sql_texts)
+        assert any("SERIAL PRIMARY KEY" in sql for sql in sql_texts)
 
     def test_create_tables_postgresql_sql_content(self) -> None:
         """Test PostgreSQL SQL contains correct syntax."""
