@@ -189,7 +189,7 @@ ID_LIKE=debian
 PRETTY_NAME="Ubuntu 24.04 LTS"
 VERSION_ID="24.04"
 """
-    with patch("builtins.open", create=True) as mock_open:
+    with patch("pathlib.Path.open", create=True) as mock_open:
         mock_open.return_value.__enter__.return_value.read.return_value = ubuntu_2404_content
         result = wizard.check_ubuntu_version()
         assert result is True, "Should pass for Ubuntu 24.04"
@@ -204,7 +204,7 @@ VERSION="22.04 LTS (Jammy Jellyfish)"
 ID=ubuntu
 VERSION_ID="22.04"
 """
-    with patch("builtins.open", create=True) as mock_open:
+    with patch("pathlib.Path.open", create=True) as mock_open:
         mock_open.return_value.__enter__.return_value.read.return_value = ubuntu_2204_content
         result = wizard.check_ubuntu_version()
         assert result is True, "Should pass for other Ubuntu versions"

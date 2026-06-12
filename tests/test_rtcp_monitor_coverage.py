@@ -231,7 +231,8 @@ class TestRTCPMonitor:
         monitor._calculate_jitter(8000, 1000.0)
 
         assert monitor.last_arrival_time == 1000.0
-        assert monitor.transit_time == pytest.approx(1000.0 - 8000 / 8000.0)
+        # First packet only establishes the baseline; transit_time starts at 0.0.
+        assert monitor.transit_time == 0.0
 
     @patch("pbx.rtp.rtcp_monitor.get_logger")
     def test_calculate_jitter_second_packet(self, mock_get_logger: MagicMock) -> None:
