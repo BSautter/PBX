@@ -606,78 +606,77 @@ class TestAutoAttendantDTMF:
         # Should return to menu
         assert result["action"] == "play"
 
-    def test_handle_dtmf_submenu_navigation(self, auto_attendant) -> None:
+    def test_handle_dtmf_submenu_navigation(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support Menu")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support Menu")
 
-        session = self._start_session(auto_attendant)
-        _result = auto_attendant.handle_dtmf(session, "3")
+        session = self._start_session(auto_attendant_with_db)
+        _result = auto_attendant_with_db.handle_dtmf(session, "3")
         assert session["state"] == AAState.SUBMENU
         assert session["current_menu_id"] == "support"
         assert "main" in session["menu_stack"]
 
-    def test_handle_dtmf_submenu_go_back(self, auto_attendant) -> None:
+    def test_handle_dtmf_submenu_go_back(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support Menu")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support Menu")
 
-        session = self._start_session(auto_attendant)
-        auto_attendant.handle_dtmf(session, "3")  # go to support submenu
+        session = self._start_session(auto_attendant_with_db)
+        auto_attendant_with_db.handle_dtmf(session, "3")
 
-        # Now go back with *
-        _result = auto_attendant.handle_dtmf(session, "*")
+        _result = auto_attendant_with_db.handle_dtmf(session, "*")
         assert session["current_menu_id"] == "main"
         assert session["state"] == AAState.MAIN_MENU
 
-    def test_handle_dtmf_submenu_go_back_with_9(self, auto_attendant) -> None:
+    def test_handle_dtmf_submenu_go_back_with_9(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support", "Support Menu")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support", "Support Menu")
 
-        session = self._start_session(auto_attendant)
-        auto_attendant.handle_dtmf(session, "3")  # go to support submenu
+        session = self._start_session(auto_attendant_with_db)
+        auto_attendant_with_db.handle_dtmf(session, "3")
 
-        _result = auto_attendant.handle_dtmf(session, "9")
+        _result = auto_attendant_with_db.handle_dtmf(session, "9")
         assert session["current_menu_id"] == "main"
 
-    def test_handle_dtmf_submenu_extension_transfer(self, auto_attendant) -> None:
+    def test_handle_dtmf_submenu_extension_transfer(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
-        auto_attendant.add_menu_item("main", "3", "submenu", "support")
-        auto_attendant.add_menu_item("support", "1", "extension", "2001", "Tech")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        auto_attendant_with_db.add_menu_item("main", "3", "submenu", "support")
+        auto_attendant_with_db.add_menu_item("support", "1", "extension", "2001", "Tech")
 
-        session = self._start_session(auto_attendant)
-        auto_attendant.handle_dtmf(session, "3")  # go to support
-        result = auto_attendant.handle_dtmf(session, "1")  # select tech
+        session = self._start_session(auto_attendant_with_db)
+        auto_attendant_with_db.handle_dtmf(session, "3")
+        result = auto_attendant_with_db.handle_dtmf(session, "1")
         assert result["action"] == "transfer"
         assert result["destination"] == "2001"
 
-    def test_handle_dtmf_voicemail_destination(self, auto_attendant) -> None:
-        auto_attendant.add_menu_item("main", "4", "voicemail", "1001", "Leave voicemail")
+    def test_handle_dtmf_voicemail_destination(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.add_menu_item("main", "4", "voicemail", "1001", "Leave voicemail")
 
-        session = self._start_session(auto_attendant)
-        result = auto_attendant.handle_dtmf(session, "4")
+        session = self._start_session(auto_attendant_with_db)
+        result = auto_attendant_with_db.handle_dtmf(session, "4")
         assert result["action"] == "voicemail"
         assert result["mailbox"] == "1001"
 
-    def test_handle_dtmf_queue_destination(self, auto_attendant) -> None:
-        auto_attendant.add_menu_item("main", "5", "queue", "sales_queue", "Sales")
+    def test_handle_dtmf_queue_destination(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.add_menu_item("main", "5", "queue", "sales_queue", "Sales")
 
-        session = self._start_session(auto_attendant)
-        result = auto_attendant.handle_dtmf(session, "5")
+        session = self._start_session(auto_attendant_with_db)
+        result = auto_attendant_with_db.handle_dtmf(session, "5")
         assert result["action"] == "transfer"
         assert result["destination"] == "sales_queue"
 
-    def test_handle_dtmf_operator_destination(self, auto_attendant) -> None:
-        auto_attendant.add_menu_item("main", "0", "operator", "1001", "Operator")
+    def test_handle_dtmf_operator_destination(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.add_menu_item("main", "0", "operator", "1001", "Operator")
 
-        session = self._start_session(auto_attendant)
-        result = auto_attendant.handle_dtmf(session, "0")
+        session = self._start_session(auto_attendant_with_db)
+        result = auto_attendant_with_db.handle_dtmf(session, "0")
         assert result["action"] == "transfer"
         assert result["destination"] == "1001"
 
@@ -691,15 +690,15 @@ class TestAutoAttendantDTMF:
         # Should handle as invalid
         assert result["action"] == "play"
 
-    def test_handle_dtmf_in_invalid_state_submenu(self, auto_attendant) -> None:
+    def test_handle_dtmf_in_invalid_state_submenu(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
 
-        session = self._start_session(auto_attendant)
+        session = self._start_session(auto_attendant_with_db)
         session["state"] = AAState.INVALID
         session["current_menu_id"] = "support"
-        _result = auto_attendant.handle_dtmf(session, "1")
+        _result = auto_attendant_with_db.handle_dtmf(session, "1")
         assert session["state"] == AAState.SUBMENU
 
 
@@ -756,19 +755,18 @@ class TestAutoAttendantAudioFiles:
         result = auto_attendant._get_audio_file("welcome")
         assert result == wav_path
 
-    def test_get_audio_file_submenu_custom(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        # Create a custom audio file path and update menu
-        custom_audio = Path(auto_attendant.audio_path) / "custom_support.wav"
+    def test_get_audio_file_submenu_custom(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        custom_audio = Path(auto_attendant_with_db.audio_path) / "custom_support.wav"
         custom_audio.write_bytes(b"custom audio")
-        auto_attendant.update_menu("support", audio_file=str(custom_audio))
+        auto_attendant_with_db.update_menu("support", audio_file=str(custom_audio))
 
-        result = auto_attendant._get_audio_file("support")
+        result = auto_attendant_with_db._get_audio_file("support")
         assert result == str(custom_audio)
 
-    def test_get_audio_file_submenu_no_custom(self, auto_attendant) -> None:
-        auto_attendant.create_menu("support", "main", "Support")
-        result = auto_attendant._get_audio_file("support")
+    def test_get_audio_file_submenu_no_custom(self, auto_attendant_with_db) -> None:
+        auto_attendant_with_db.create_menu("support", "main", "Support")
+        result = auto_attendant_with_db._get_audio_file("support")
         assert result is None
 
 
@@ -781,10 +779,10 @@ class TestAutoAttendantAudioFiles:
 class TestAutoAttendantNavigateSubmenu:
     """Tests for submenu navigation."""
 
-    def test_navigate_to_submenu(self, auto_attendant) -> None:
+    def test_navigate_to_submenu(self, auto_attendant_with_db) -> None:
         from pbx.features.auto_attendant import AAState
 
-        auto_attendant.create_menu("support", "main", "Support")
+        auto_attendant_with_db.create_menu("support", "main", "Support")
 
         session = {
             "state": AAState.MAIN_MENU,
@@ -793,7 +791,7 @@ class TestAutoAttendantNavigateSubmenu:
             "retry_count": 5,
         }
 
-        _result = auto_attendant._navigate_to_submenu(session, "support")
+        _result = auto_attendant_with_db._navigate_to_submenu(session, "support")
         assert session["current_menu_id"] == "support"
         assert session["state"] == AAState.SUBMENU
         assert session["retry_count"] == 0
