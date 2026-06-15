@@ -276,8 +276,7 @@ Configured in `.pre-commit-config.yaml`:
 | `Dockerfile` | Multi-stage build (python:3.14-slim-bookworm) |
 | `VERSION` | Project version file |
 | `constraints.txt` | Pinned dependency versions for reproducible builds |
-| `requirements.lock` | Locked requirements |
-| `uv.lock` | uv lockfile |
+| `requirements.lock` | Full dependency lock compiled from `pyproject.toml` + `constraints.txt` (via `make lock`) |
 | `alembic.ini` | Alembic migration configuration |
 | `healthcheck.py` | Docker health check script |
 
