@@ -56,7 +56,7 @@ make check
 - **Quotes**: Double quotes
 - **Indentation**: 4 spaces
 - **Line endings**: LF only (enforced by `.editorconfig` and pre-commit)
-- **Type annotations**: Required — mypy strict mode is enabled for `api/`, `core/`, and `models/`
+- **Type annotations**: Required — mypy runs in strict mode across the package; only `features/`, `utils/`, `scripts/`, the test suite, and `api/license_api.py` are excluded
 - **Datetimes**: Always timezone-aware — use `datetime.now(tz=UTC)`, never bare `datetime.now()`
 - **File paths**: Use `pathlib.Path`, not `os.path`
 - **Exceptions**: Use specific exception types, not bare `except Exception`

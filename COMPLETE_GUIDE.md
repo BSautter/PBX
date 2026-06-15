@@ -2210,7 +2210,7 @@ PBX System
 │   │   └── registered_phone.py
 │   └── utils/             - Utilities and helpers
 ├── admin/js/
-│   ├── pages/             - 18 TypeScript page modules
+│   ├── pages/             - 19 TypeScript page modules
 │   ├── ui/                - UI components (tabs, notifications)
 │   ├── api/client.ts      - API client
 │   └── state/store.ts     - State management
