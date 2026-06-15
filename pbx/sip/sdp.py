@@ -264,6 +264,13 @@ class SDPBuilder:
         # Build attributes dynamically based on codecs
         attributes: list[str] = []
 
+        # Optional per-payload-type rtpmap name overrides.  When negotiating with
+        # a caller, the PBX echoes back the exact rtpmap names from their offer
+        # (essential for phones such as the Zultys ZIP 33G/37G whose firmware
+        # uses non-standard numeric codec names).  Applies to both the static and
+        # the dynamic payload types emitted below.
+        overrides = rtpmap_overrides or {}
+
         # Standard codec name mapping (payload type -> "name/rate")
         _standard_names: dict[str, str] = {
             "0": "PCMU/8000",
@@ -279,7 +286,6 @@ class SDPBuilder:
         # rtpmap lines avoids codec name mismatches on phones like the Zultys
         # ZIP 33G/37G whose firmware uses non-standard numeric names internally.
         if not skip_static_rtpmap:
-            overrides = rtpmap_overrides or {}
             attributes.extend(
                 f"rtpmap:{pt} {overrides.get(pt, _standard_names[pt])}"
                 for pt in ("0", "8", "9", "18", "2")
@@ -289,19 +295,19 @@ class SDPBuilder:
         # Support for G.726 variants with dynamic payload types
         # G.726-40 (typically uses dynamic PT 114)
         if "114" in codecs:
-            attributes.append("rtpmap:114 G726-40/8000")
+            attributes.append(f"rtpmap:114 {overrides.get('114', 'G726-40/8000')}")
         # G.726-24 (typically uses dynamic PT 113)
         if "113" in codecs:
-            attributes.append("rtpmap:113 G726-24/8000")
+            attributes.append(f"rtpmap:113 {overrides.get('113', 'G726-24/8000')}")
         # G.726-16 (typically uses dynamic PT 112)
         if "112" in codecs:
-            attributes.append("rtpmap:112 G726-16/8000")
+            attributes.append(f"rtpmap:112 {overrides.get('112', 'G726-16/8000')}")
 
         # iLBC - Internet Low Bitrate Codec (dynamic PT)
         # Note: Check config for actual payload type, default to 97 if iLBC enabled
         # If both iLBC and Speex narrowband are enabled, ensure distinct payload types
         if "97" in codecs:
-            attributes.append("rtpmap:97 iLBC/8000")
+            attributes.append(f"rtpmap:97 {overrides.get('97', 'iLBC/8000')}")
             # Use configured mode from config (20ms or 30ms)
             attributes.append(f"fmtp:97 mode={ilbc_mode}")
 
@@ -310,20 +316,22 @@ class SDPBuilder:
         # PT 98 for narrowband, PT 99 for wideband, PT 100 for ultra-wideband
         if "98" in codecs:
             # Speex narrowband (8kHz)
-            attributes.append("rtpmap:98 SPEEX/8000")
+            attributes.append(f"rtpmap:98 {overrides.get('98', 'SPEEX/8000')}")
         if "99" in codecs:
             # Speex wideband (16kHz)
-            attributes.append("rtpmap:99 SPEEX/16000")
+            attributes.append(f"rtpmap:99 {overrides.get('99', 'SPEEX/16000')}")
             attributes.append('fmtp:99 vbr=on;mode="1,any"')
         if "100" in codecs:
             # Speex ultra-wideband (32kHz)
-            attributes.append("rtpmap:100 SPEEX/32000")
+            attributes.append(f"rtpmap:100 {overrides.get('100', 'SPEEX/32000')}")
             attributes.append('fmtp:100 vbr=on;mode="2,any"')
 
         # Support configurable DTMF payload type (not just hardcoded 101)
         dtmf_pt_str = str(dtmf_payload_type)
         if dtmf_pt_str in codecs:
-            attributes.append(f"rtpmap:{dtmf_pt_str} telephone-event/8000")
+            attributes.append(
+                f"rtpmap:{dtmf_pt_str} {overrides.get(dtmf_pt_str, 'telephone-event/8000')}"
+            )
             attributes.append(f"fmtp:{dtmf_pt_str} 0-16")
 
         # SRTP crypto attributes — must appear before ptime/sendrecv per

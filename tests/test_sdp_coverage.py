@@ -377,6 +377,26 @@ class TestSDPBuilderBuildAudioSdp:
         assert "rtpmap:96 telephone-event/8000" in result
         assert "fmtp:96 0-16" in result
 
+    def test_rtpmap_overrides_static_and_dynamic(self) -> None:
+        # Mirroring a caller's rtpmap names (e.g. Zultys phones that use numeric
+        # codec names) must apply to both static and dynamic payload types.
+        result = SDPBuilder.build_audio_sdp(
+            "192.168.1.1",
+            10000,
+            codecs=["0", "8", "97", "101"],
+            rtpmap_overrides={"0": "0/8000", "97": "custom-ilbc/8000", "101": "101/8000"},
+        )
+        # Overridden names are echoed back verbatim (static PT 0, dynamic 97/101).
+        assert "rtpmap:0 0/8000" in result
+        assert "rtpmap:97 custom-ilbc/8000" in result
+        assert "rtpmap:101 101/8000" in result
+        # The standard names are NOT emitted for overridden payload types.
+        assert "rtpmap:0 PCMU/8000" not in result
+        assert "rtpmap:97 iLBC/8000" not in result
+        assert "rtpmap:101 telephone-event/8000" not in result
+        # Non-overridden payload types keep their standard names.
+        assert "rtpmap:8 PCMA/8000" in result
+
     def test_g726_40_dynamic_codec(self) -> None:
         result = SDPBuilder.build_audio_sdp("192.168.1.1", 10000, codecs=["114"])
         assert "rtpmap:114 G726-40/8000" in result
