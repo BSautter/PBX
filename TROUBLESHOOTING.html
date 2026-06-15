@@ -10,7 +10,7 @@
         * {
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
@@ -20,38 +20,38 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
-        
+
         .container {
             background-color: white;
             padding: 40px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
+
         h1 {
             color: #2c3e50;
             border-bottom: 3px solid #3498db;
             padding-bottom: 10px;
             margin-top: 0;
         }
-        
+
         h2 {
             color: #34495e;
             border-bottom: 2px solid #ecf0f1;
             padding-bottom: 8px;
             margin-top: 30px;
         }
-        
+
         h3 {
             color: #555;
             margin-top: 25px;
         }
-        
+
         h4 {
             color: #666;
             margin-top: 20px;
         }
-        
+
         code {
             background-color: #f4f4f4;
             padding: 2px 6px;
@@ -60,7 +60,7 @@
             font-size: 0.9em;
             color: #e74c3c;
         }
-        
+
         pre {
             background-color: #2c3e50;
             color: #ecf0f1;
@@ -69,38 +69,38 @@
             overflow-x: auto;
             margin: 15px 0;
         }
-        
+
         pre code {
             background-color: transparent;
             color: inherit;
             padding: 0;
             font-size: 0.95em;
         }
-        
+
         .code-block.bash code,
         .code-block.sh code {
             color: #2ecc71;
         }
-        
+
         .code-block.yaml code,
         .code-block.yml code {
             color: #f39c12;
         }
-        
+
         .code-block.python code {
             color: #3498db;
         }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
         }
-        
+
         table.info-table {
             background-color: white;
         }
-        
+
         th {
             background-color: #3498db;
             color: white;
@@ -108,70 +108,70 @@
             text-align: left;
             font-weight: 600;
         }
-        
+
         td {
             padding: 10px 12px;
             border: 1px solid #ddd;
         }
-        
+
         tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        
+
         tr:hover {
             background-color: #f0f0f0;
         }
-        
+
         a {
             color: #3498db;
             text-decoration: none;
         }
-        
+
         a:hover {
             text-decoration: underline;
             color: #2980b9;
         }
-        
+
         hr {
             border: none;
             border-top: 2px solid #ecf0f1;
             margin: 30px 0;
         }
-        
+
         ul, ol {
             margin: 10px 0;
             padding-left: 30px;
         }
-        
+
         li {
             margin: 5px 0;
         }
-        
+
         strong {
             color: #2c3e50;
             font-weight: 600;
         }
-        
+
         p {
             margin: 10px 0;
         }
-        
+
         .toc {
             background-color: #ecf0f1;
             padding: 20px;
             border-radius: 5px;
             margin: 20px 0;
         }
-        
+
         .toc ul {
             list-style-type: none;
             padding-left: 0;
         }
-        
+
         .toc li {
             margin: 8px 0;
         }
-        
+
         .status-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -180,42 +180,42 @@
             font-weight: bold;
             margin-left: 10px;
         }
-        
+
         .status-fixed {
             background-color: #2ecc71;
             color: white;
         }
-        
+
         .status-documented {
             background-color: #3498db;
             color: white;
         }
-        
+
         @media print {
             body {
                 background-color: white;
             }
-            
+
             .container {
                 box-shadow: none;
             }
-            
+
             pre {
                 background-color: #f4f4f4;
                 color: #333;
                 border: 1px solid #ddd;
             }
         }
-        
+
         @media (max-width: 768px) {
             body {
                 padding: 10px;
             }
-            
+
             .container {
                 padding: 20px;
             }
-            
+
             table {
                 font-size: 0.9em;
             }
@@ -225,13 +225,9 @@
 </head>
 <body>
     <div class="container">
-<h1 id="pbx-system-comprehensive-troubleshooting-guide">PBX System - Comprehensive Troubleshooting Guide</h1>
+<h1 id="pbx-system-troubleshooting-guide">PBX System - Troubleshooting Guide</h1>
 
-<strong>Version:</strong> 1.0.0  
-<strong>Last Updated:</strong> 2025-12-29  
-<strong>For Administrators and Support Staff</strong>
-
-<p>This comprehensive guide covers all known issues, solutions, and troubleshooting procedures for the Warden VoIP PBX system.</p>
+<p>This guide covers all known issues, solutions, and troubleshooting procedures for the Warden VoIP PBX system.</p>
 
 <hr>
 
@@ -285,7 +281,7 @@
 </tr>
 <tr>
 <td>Email not sending</td>
-<td><code>python -c "import smtplib; s=smtplib.SMTP('localhost', 25); print(s.ehlo()); s.quit()"</code></td>
+<td><code>python -c "import smtplib; s=smtplib.SMTP('localhost'); s.quit(); print('OK')"</code></td>
 <td><a href="#integration-problems">Integration Problems</a></td>
 </tr>
 <tr>
@@ -385,7 +381,7 @@
 
 <h3 id="distorted-or-garbled-audio">Distorted or Garbled Audio</h3>
 
-<strong>Status:</strong> ✅ <strong>FIXED</strong> (December 19, 2025)
+<strong>Status:</strong> FIXED (December 19, 2025)
 
 <strong>Symptoms:</strong>
 <ul>
@@ -691,7 +687,7 @@
 
 <h3 id="err_ssl_protocol_error-with-reverse-proxy">ERR_SSL_PROTOCOL_ERROR with Reverse Proxy</h3>
 
-<strong>Status:</strong> ✅ <strong>DOCUMENTED</strong> (December 30, 2025)
+<strong>Status:</strong> DOCUMENTED (December 30, 2025)
 
 <strong>Symptoms:</strong>
 <ul>
@@ -707,13 +703,13 @@
 
 <strong>Architecture Overview:</strong>
 
-<p>✅ <strong>Correct Setup:</strong></p>
+<strong>Correct Setup:</strong>
 </code>`<code>
 <p>Browser ──HTTPS──> Apache (port 443) ──HTTP──> PBX Backend (port 9000)</p>
 <p>         SSL/TLS    ↑ SSL Termination      ↑ Plain HTTP (internal)</p>
 </code>`<code>
 
-<p>❌ <strong>Incorrect Setup (Causes Error):</strong></p>
+<strong>Incorrect Setup (Causes Error):</strong>
 </code>`<code>
 <p>Browser ──HTTPS──> Apache (port 443) ──HTTPS──> PBX Backend (port 9000)</p>
 <p>         SSL/TLS                         SSL/TLS (conflict!)</p>
@@ -796,7 +792,7 @@
 
 <h3 id="admin-panel-display-issues-broken-ui">Admin Panel Display Issues (Broken UI)</h3>
 
-<strong>Status:</strong> ✅ <strong>FIXED</strong> (December 23, 2025)
+<strong>Status:</strong> FIXED (December 23, 2025)
 
 <strong>Symptoms:</strong>
 <ul>
@@ -940,7 +936,6 @@
 
 <strong>Detailed Documentation:</strong>
 <ul>
-<li>Quick fix guide: </code>docs/APACHE_404_FIX.md<code></li>
 <li>Complete setup: </code>docs/APACHE_REVERSE_PROXY_SETUP.md<code></li>
 <li>Configuration example: </code>apache-pbx.conf.example<code></li>
 </ul>
@@ -971,7 +966,7 @@
 <strong>1. Test SMTP Configuration:</strong>
 </code>`<code>bash
 <h1 id="run-email-test-script">Run email test script</h1>
-<p>python -c "import smtplib; s=smtplib.SMTP('localhost', 25); print(s.ehlo()); s.quit()"</p>
+<p>python -c "import smtplib; s=smtplib.SMTP('localhost'); s.quit(); print('OK')"</p>
 
 <h1 id="should-show-smtp-connection-and-send-test">Should show SMTP connection and send test</h1>
 </code>`<code>
@@ -1292,6 +1287,54 @@
 <h1 id="http-provisioning-on-port-8888">HTTP provisioning on port 8888</h1>
 </code>`<code>
 
+<h3 id="provisioning-connection-error-after-port-change">Provisioning Connection Error After Port Change</h3>
+
+<strong>Symptoms:</strong>
+<ul>
+<li>Phones show "Connection error" for provisioning</li>
+<li>Provisioning URL points to wrong port (e.g., 8080 instead of 9000)</li>
+<li>Direct access to PBX on the correct port works fine</li>
+</ul>
+
+<strong>Root Cause:</strong>
+<p>When </code>api.port<code> in </code>config.yml<code> is changed from a previous value (e.g., 8080), previously registered devices may have cached provisioning URLs with the old port. The phone requests </code>http://server:8080/provision/...<code> but the server now listens on port 9000.</p>
+
+<strong>Solution:</strong>
+<ol>
+<li><strong>Restart the PBX service</strong> - URLs are automatically regenerated from current config on startup:</li>
+</ol>
+   </code>`<code>bash
+<p>   sudo systemctl restart pbx</p>
+   </code>`<code>
+
+<ol>
+<li><strong>Verify the fix:</strong></li>
+</ol>
+   </code>`<code>bash
+<p>   # Check the API port in logs</p>
+<p>   sudo journalctl -u pbx -n 50 | grep "API port"</p>
+
+<p>   # Verify provisioning works</p>
+<p>   curl -H "Authorization: Bearer YOUR_TOKEN" \</p>
+<p>        http://localhost:9000/api/provisioning/devices | jq</p>
+   </code>`<code>
+
+<ol>
+<li><strong>If phones still fail</strong>, they may have cached the old URL:</li>
+<ul>
+<li>Power cycle the phone to trigger re-provisioning</li>
+<li>Or factory reset and re-provision</li>
+</ul>
+</ol>
+
+<strong>Prevention:</strong>
+<p>Use template variables in </code>config.yml<code> provisioning URL format:</p>
+</code>`<code>yaml
+<p>provisioning:</p>
+<p>  enabled: true</p>
+<p>  url_format: http://{{SERVER_IP}}:{{PORT}}/provision/{mac}.cfg</p>
+</code>`<code>
+
 <hr>
 
 <h2 id="database-issues">Database Issues</h2>
@@ -1385,7 +1428,7 @@
 </code>`<code>bash
 <p>alembic upgrade head</p>
 
-<h1 id="follow-prompts">Applies all pending migrations</h1>
+<h1 id="follow-prompts">Follow prompts</h1>
 </code>`<code>
 
 <strong>3. Check Schema Version:</strong>
@@ -1480,10 +1523,10 @@
 <strong>4. Verify Python Dependencies:</strong>
 </code>`<code>bash
 <p>pip list | grep -i twisted</p>
-<p>pip list | grep -i yaml</p>
+<p>uv pip list | grep -i yaml</p>
 
 <h1 id="reinstall-if-missing">Reinstall if missing</h1>
-<p>uv pip install -r requirements.txt</p>
+<p>make install-prod</p>
 </code>`<code>
 
 <strong>5. Check File Permissions:</strong>
@@ -1920,7 +1963,7 @@
 <h3 id="admin-panel-display-issues-browser-cache">Admin Panel Display Issues (Browser Cache)</h3>
 
 <strong>Date Fixed:</strong> December 23, 2025  
-<strong>Status:</strong> ✅ RESOLVED
+<strong>Status:</strong> RESOLVED
 
 <strong>Problem:</strong>
 <p>After server updates, admin panel displayed incorrectly with non-functional buttons.</p>
@@ -1943,7 +1986,7 @@
 <h3 id="api-connection-timeout-reverse-proxy">API Connection Timeout (Reverse Proxy)</h3>
 
 <strong>Date Fixed:</strong> December 23, 2025  
-<strong>Status:</strong> ✅ RESOLVED
+<strong>Status:</strong> RESOLVED
 
 <strong>Problem:</strong>
 <p>Admin panel API requests timing out through nginx reverse proxy.</p>
@@ -1959,7 +2002,7 @@
 <h3 id="audio-sample-rate-mismatch">Audio Sample Rate Mismatch</h3>
 
 <strong>Date Fixed:</strong> December 19, 2025  
-<strong>Status:</strong> ✅ RESOLVED
+<strong>Status:</strong> RESOLVED
 
 <strong>Problem:</strong>
 <p>Voicemail prompts sounded distorted and garbled.</p>
@@ -1979,7 +2022,7 @@
 <h3 id="rtp-one-way-audio">RTP One-Way Audio</h3>
 
 <strong>Date Fixed:</strong> December 2025  
-<strong>Status:</strong> ✅ RESOLVED
+<strong>Status:</strong> RESOLVED
 
 <strong>Problem:</strong>
 <p>RTP relay had race condition causing one-way or no audio.</p>
@@ -1998,7 +2041,7 @@
 <h3 id="g722-codec-quantization">G.722 Codec Quantization</h3>
 
 <strong>Date Fixed:</strong> December 2025  
-<strong>Status:</strong> ✅ RESOLVED
+<strong>Status:</strong> RESOLVED
 
 <strong>Problem:</strong>
 <p>G.722 audio severely distorted.</p>
@@ -2014,13 +2057,13 @@
 
 <hr>
 
-<h2 id="additional-resources">Additional Resources</h2>
+<h2 id="related-documentation">Related Documentation</h2>
 
 <h3 id="documentation">Documentation</h3>
 <ul>
 <li><a href="COMPLETE_GUIDE.md">COMPLETE_GUIDE.md</a> - Comprehensive PBX guide</li>
 <li><a href="README.md">README.md</a> - Project overview</li>
-<li><a href="docs/archive/API_DOCUMENTATION.md">API_DOCUMENTATION.md</a> - REST API reference (if available)</li>
+<li><a href="COMPLETE_GUIDE.md#92-rest-api-reference">COMPLETE_GUIDE.md - Section 9.2: REST API</a> - REST API reference</li>
 </ul>
 
 <h3 id="support">Support</h3>
@@ -2035,12 +2078,6 @@
 <li>RTP Protocol: RFC 3550</li>
 <li>VoIP Troubleshooting: https://www.voip-info.org/</li>
 </ul>
-
-<hr>
-
-<strong>Document Version:</strong> 1.0.0  
-<strong>Last Updated:</strong> 2025-12-29  
-<strong>Maintained by:</strong> PBX Development Team
 
 <hr>
 

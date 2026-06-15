@@ -54,7 +54,7 @@ repos:
           - types-PyYAML
           - types-requests
           - types-redis
-        exclude: '^(tests/|setup\.py|run_tests\.py)'
+        exclude: '^tests/'
 
   # Security linting with bandit
   - repo: https://github.com/PyCQA/bandit
