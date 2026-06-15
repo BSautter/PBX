@@ -69,7 +69,7 @@ def _load_extensions(self):
         self.extensions[number] = extension
 ```
 
-#### API Endpoint (pbx/api/rest_api.py)
+#### API Endpoint (pbx/api/routes/)
 ```python
 def _handle_get_extensions(self):
     """Get extensions."""
@@ -138,7 +138,7 @@ def get_supported_vendors(self):
 **Note**: Vendors come from built-in phone templates (hardcoded), NOT from database.  
 This is intentional - templates define supported phone models.
 
-#### API Endpoint (pbx/api/rest_api.py)
+#### API Endpoint (pbx/api/routes/)
 ```python
 def _handle_get_provisioning_vendors(self):
     """Get supported vendors and models."""
@@ -250,7 +250,7 @@ def _load_devices_from_database(self):
         self.devices[device.mac_address] = device
 ```
 
-#### API Endpoint (pbx/api/rest_api.py)
+#### API Endpoint (pbx/api/routes/)
 ```python
 def _handle_get_provisioning_devices(self):
     """Get all provisioned devices."""
@@ -336,7 +336,7 @@ When a user adds a new phone device:
 
 1. **Frontend**: User fills form and clicks "Add Device"
 2. **Frontend**: Sends `POST /api/provisioning/devices` with device data
-3. **Backend API** (pbx/api/rest_api.py):
+3. **Backend API** (pbx/api/routes/):
    ```python
    def _handle_add_provisioning_device(self):
        # Validates authentication

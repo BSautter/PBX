@@ -306,7 +306,7 @@ All tests pass with 100% success rate.
 
 ## Files Modified
 
-1. `pbx/api/rest_api.py` - New API endpoints
+1. `pbx/api/routes/phones.py` - phone-lookup API endpoint
 2. `pbx/features/phone_provisioning.py` - Improved error messages
 3. `tests/test_phone_mac_ip_correlation.py` - Comprehensive tests
 4. `examples/phone_lookup_example.py` - Usage examples

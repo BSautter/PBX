@@ -2434,8 +2434,8 @@ npm test         # Run Jest tests
 - [ ] Type checking passes (`make mypy`)
 - [ ] Database migrations created if models changed (`alembic revision --autogenerate`)
 
-**Deprecation Notice:**
-The old `pbx/api/rest_api.py` module is deprecated. Use Flask Blueprints in `pbx/api/routes/` instead. Do not add new endpoints to `rest_api.py`.
+**API Endpoint Location:**
+API endpoints live in Flask Blueprints under `pbx/api/routes/`. (The legacy `pbx/api/rest_api.py` module has been removed.)
 
 ---
 
