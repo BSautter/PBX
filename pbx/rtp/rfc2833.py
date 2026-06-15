@@ -214,9 +214,12 @@ class RFC2833Receiver:
 
     def _receive_loop(self) -> None:
         """Main receive loop for RFC 2833 events."""
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, addr = self.socket.recvfrom(2048)
+                data, addr = sock.recvfrom(2048)
                 self.handle_rtp_packet(data, addr)
             except TimeoutError:
                 continue

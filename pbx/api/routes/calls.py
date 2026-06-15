@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from flask import Blueprint, Response, current_app, request
 
@@ -206,13 +207,14 @@ def get_advanced_analytics() -> tuple[Response, int]:
                 return send_json({"error": "start_date and end_date parameters required"}, 400), 400
 
             # Parse filters
-            filters = {}
+            filters: dict[str, Any] = {}
             if request.args.get("extension"):
                 filters["extension"] = request.args.get("extension")
             if request.args.get("disposition"):
                 filters["disposition"] = request.args.get("disposition")
-            if request.args.get("min_duration"):
-                filters["min_duration"] = int(request.args.get("min_duration"))
+            min_duration = request.args.get("min_duration")
+            if min_duration:
+                filters["min_duration"] = int(min_duration)
 
             analytics = pbx_core.statistics_engine.get_advanced_analytics(
                 start_date, end_date, filters or None

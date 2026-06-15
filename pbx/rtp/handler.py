@@ -94,9 +94,12 @@ class RTPHandler:
 
     def _receive_loop(self) -> None:
         """Receive RTP packets in a loop."""
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, addr = self.socket.recvfrom(2048)
+                data, addr = sock.recvfrom(2048)
                 self._handle_rtp_packet(data, addr)
             except TimeoutError:
                 continue
@@ -262,7 +265,9 @@ class RTPRelay:
             self.port_pool.insert(0, rtp_port)
         return None
 
-    def set_endpoints(self, call_id: str, endpoint_a: AddrTuple, endpoint_b: AddrTuple) -> None:
+    def set_endpoints(
+        self, call_id: str, endpoint_a: AddrTuple | None, endpoint_b: AddrTuple | None
+    ) -> None:
         """
         Set both endpoints for RTP relay.
 
@@ -480,9 +485,12 @@ class RTPRelayHandler:
 
     def _relay_loop(self) -> None:
         """Relay RTP packets between endpoints with symmetric RTP support."""
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, addr = self.socket.recvfrom(2048)
+                data, addr = sock.recvfrom(2048)
 
                 side = self._classify_packet(addr, data)
                 if side is None:
@@ -509,7 +517,7 @@ class RTPRelayHandler:
                     )
                     continue
 
-                self.socket.sendto(data, target)
+                sock.sendto(data, target)
 
                 if qos_metrics and len(data) >= 12:
                     try:
@@ -607,9 +615,12 @@ class RTPRecorder:
 
     def _record_loop(self) -> None:
         """Record RTP packets in a loop."""
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, addr = self.socket.recvfrom(2048)
+                data, addr = sock.recvfrom(2048)
 
                 # Learn remote endpoint from first packet
                 if not self.remote_endpoint:
@@ -1218,9 +1229,12 @@ class RTPDTMFListener:
     def _listen_loop(self) -> None:
         """Listen for RTP packets and detect DTMF tones."""
 
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, _addr = self.socket.recvfrom(2048)
+                data, _addr = sock.recvfrom(2048)
 
                 # Extract audio payload from RTP packet
                 if len(data) >= 12:

@@ -60,7 +60,7 @@ def get_config() -> tuple[Response, int]:
     # SECURITY: Check admin authentication but allow graceful degradation
     # Return empty config if not authenticated to prevent UI errors
     is_authenticated, payload = verify_authentication()
-    if not is_authenticated or not payload.get("is_admin", False):
+    if not is_authenticated or payload is None or not payload.get("is_admin", False):
         # Return default config structure for non-authenticated users
         # This allows the UI to load gracefully without errors
         return send_json(DEFAULT_CONFIG), 200
@@ -304,7 +304,7 @@ def get_dtmf_config() -> tuple[Response, int]:
     # SECURITY: Check admin authentication but allow graceful degradation
     # Return default config if not authenticated to prevent UI errors
     is_authenticated, payload = verify_authentication()
-    if not is_authenticated or not payload.get("is_admin", False):
+    if not is_authenticated or payload is None or not payload.get("is_admin", False):
         # Return default DTMF configuration for non-authenticated users
         # This allows the UI to load gracefully without errors
         return send_json(DEFAULT_DTMF_CONFIG), 200

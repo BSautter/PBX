@@ -130,7 +130,8 @@ class MatrixIntegration:
             )
 
             if response.status_code in [200, 201]:
-                return response.json()
+                result: dict[Any, Any] | None = response.json()
+                return result
             self.logger.error(f"Matrix API error: {response.status_code} - {response.text}")
             return None
 
@@ -353,7 +354,8 @@ class MatrixIntegration:
 
             if response.status_code == 200:
                 result = response.json()
-                return result.get("content_uri")
+                content_uri: str | None = result.get("content_uri")
+                return content_uri
             self.logger.error(f"File upload failed: {response.status_code}")
             return None
 

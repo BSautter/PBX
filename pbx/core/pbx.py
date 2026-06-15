@@ -1895,7 +1895,11 @@ class PBXCore:
             ext = getattr(call, ext_field, None)
             if not ext:
                 continue
-            addr = self.extension_registry.get_address(ext) if self.extension_registry else None
+            addr = (
+                self.extension_registry.get_address(ext)
+                if self.extension_registry is not None
+                else None
+            )
             if not addr:
                 continue
             try:

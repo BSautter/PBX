@@ -140,9 +140,12 @@ class SIPServer:
         """Listen for incoming SIP messages."""
         self.logger.info("SIP server listening for messages...")
 
+        sock = self.socket
+        if sock is None:
+            return
         while self.running:
             try:
-                data, addr = self.socket.recvfrom(65535)
+                data, addr = sock.recvfrom(65535)
 
                 try:
                     message_text = data.decode("utf-8")
@@ -280,7 +283,7 @@ class SIPServer:
         else:
             # No credentials provided - check if auth is required
             auth_required = True
-            if self.pbx_core:
+            if self.pbx_core is not None:
                 auth_required = self.pbx_core.config.get("security.sip_auth_required", True)
 
             if auth_required:
@@ -484,6 +487,9 @@ class SIPServer:
         """
         from pbx.sip.sdp import SDPBuilder, SDPSession
 
+        if self.pbx_core is None:
+            return
+
         call_id = call.call_id
         self.logger.info(f"Re-INVITE for existing call {call_id} from {addr}")
 
@@ -597,8 +603,8 @@ class SIPServer:
             reinvite = SIPMessageBuilder.build_request(
                 method="INVITE",
                 uri=f"sip:{other_ext}@{other_addr[0]}:{other_addr[1]}",
-                from_addr=message.get_header("From"),
-                to_addr=message.get_header("To"),
+                from_addr=message.get_header("From") or "",
+                to_addr=message.get_header("To") or "",
                 call_id=call_id,
                 cseq=self._parse_cseq_number(message.get_header("CSeq")) + 1,
                 body=reinvite_sdp,
@@ -633,7 +639,10 @@ class SIPServer:
         """
         import uuid as _uuid
 
-        call = self.pbx_core.call_manager.get_call(call_id) if self.pbx_core else None
+        if self.pbx_core is None:
+            return
+
+        call = self.pbx_core.call_manager.get_call(call_id)
         if not call:
             return
 
@@ -708,6 +717,9 @@ class SIPServer:
         self.logger.info(">>> BYE REQUEST RECEIVED <<<")
         self.logger.info(f"  Call ID: {call_id}")
         self.logger.info(f"  From: {addr}")
+
+        if not call_id:
+            return
 
         if self.pbx_core:
             call = self.pbx_core.call_manager.get_call(call_id)
@@ -1004,7 +1016,7 @@ class SIPServer:
             # Return PIDF presence document
             status = "open"
             if self.pbx_core and extension and hasattr(self.pbx_core, "presence_system"):
-                presence_info = self.pbx_core.presence_system.get_presence(extension)
+                presence_info = self.pbx_core.presence_system.get_status(extension)
                 if presence_info:
                     status = presence_info.get("status", "open")
 
@@ -1027,10 +1039,9 @@ class SIPServer:
             new_msgs = 0
             old_msgs = 0
             if self.pbx_core and extension and hasattr(self.pbx_core, "voicemail_system"):
-                vm_status = self.pbx_core.voicemail_system.get_mailbox_status(extension)
-                if vm_status:
-                    new_msgs = vm_status.get("new_messages", 0)
-                    old_msgs = vm_status.get("old_messages", 0)
+                mailbox = self.pbx_core.voicemail_system.get_mailbox(extension)
+                new_msgs = sum(1 for m in mailbox.messages if not m.get("listened"))
+                old_msgs = sum(1 for m in mailbox.messages if m.get("listened"))
 
             waiting = "yes" if new_msgs > 0 else "no"
             return f"Messages-Waiting: {waiting}\r\nVoice-Message: {new_msgs}/{old_msgs}"
@@ -1114,6 +1125,9 @@ class SIPServer:
             return
 
         call_id = message.get_header("Call-ID")
+        if not call_id:
+            self._send_response(400, "Bad Request - Missing Call-ID", message, addr)
+            return
         referred_by = message.get_header("Referred-By")
 
         self.logger.info(f"REFER to: {refer_to}, Call-ID: {call_id}")

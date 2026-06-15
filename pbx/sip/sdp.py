@@ -196,7 +196,7 @@ class SDPBuilder:
         ilbc_mode: int = 30,
         protocol: str = "RTP/AVP",
         crypto: list[str] | None = None,
-        _rtpmap_overrides: dict[str, str] | None = None,
+        rtpmap_overrides: dict[str, str] | None = None,
         skip_static_rtpmap: bool = False,
     ) -> str:
         """
@@ -279,8 +279,9 @@ class SDPBuilder:
         # rtpmap lines avoids codec name mismatches on phones like the Zultys
         # ZIP 33G/37G whose firmware uses non-standard numeric names internally.
         if not skip_static_rtpmap:
+            overrides = rtpmap_overrides or {}
             attributes.extend(
-                f"rtpmap:{pt} {_standard_names[pt]}"
+                f"rtpmap:{pt} {overrides.get(pt, _standard_names[pt])}"
                 for pt in ("0", "8", "9", "18", "2")
                 if pt in codecs
             )

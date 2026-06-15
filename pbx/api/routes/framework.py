@@ -354,6 +354,9 @@ def click_to_dial_call(extension: str) -> tuple[Response, int]:
             destination = body.get("destination")
             source = body.get("source", "web")
 
+            if not destination:
+                return send_json({"error": "destination is required"}, 400), 400
+
             from pbx.features.click_to_dial import ClickToDialEngine
 
             engine = ClickToDialEngine(pbx_core.database, pbx_core.config, pbx_core)
@@ -860,43 +863,31 @@ def clear_integration_activity() -> tuple[Response, int]:
 # def log_pci_event(): ...
 
 
+def _compliance_not_enabled(feature: str) -> tuple[Response, int]:
+    """Return a standard 'not enabled' response for disabled compliance engines.
+
+    The GDPR and PCI DSS engines in pbx.features.compliance_framework are
+    intentionally disabled (not required for US-based operations). These API
+    routes remain registered so the feature can be re-enabled for international
+    deployments without changing the API surface.
+    """
+    return send_json(
+        {"error": f"{feature} compliance is not enabled for this deployment"}, 501
+    ), 501
+
+
 @framework_bp.route("/compliance/gdpr/consents", methods=["GET"])
 @require_auth
 def get_gdpr_consents() -> tuple[Response, int]:
     """Get GDPR consent records."""
-    extension = request.args.get("extension", "")
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            from pbx.features.compliance_framework import GDPRComplianceEngine
-
-            engine = GDPRComplianceEngine(pbx_core.database, pbx_core.config)
-            consents = engine.get_consent_status(extension)
-            return send_json({"consents": consents}), 200
-        except Exception as e:
-            logger.error(f"Error getting GDPR consents: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("GDPR")
 
 
 @framework_bp.route("/compliance/gdpr/requests", methods=["GET"])
 @require_auth
 def get_gdpr_requests() -> tuple[Response, int]:
     """Get pending GDPR data requests."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            from pbx.features.compliance_framework import GDPRComplianceEngine
-
-            engine = GDPRComplianceEngine(pbx_core.database, pbx_core.config)
-            requests_list = engine.get_pending_requests()
-            return send_json({"requests": requests_list}), 200
-        except Exception as e:
-            logger.error(f"Error getting GDPR requests: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("GDPR")
 
 
 @framework_bp.route("/compliance/soc2/controls", methods=["GET"])
@@ -922,83 +913,28 @@ def get_soc2_controls() -> tuple[Response, int]:
 @require_auth
 def get_pci_audit_log() -> tuple[Response, int]:
     """Get PCI DSS audit log."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            from pbx.features.compliance_framework import PCIDSSComplianceEngine
-
-            engine = PCIDSSComplianceEngine(pbx_core.database, pbx_core.config)
-            logs = engine.get_audit_log()
-            return send_json({"logs": logs}), 200
-        except Exception as e:
-            logger.error(f"Error getting PCI audit log: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("PCI DSS")
 
 
 @framework_bp.route("/compliance/gdpr/consent", methods=["POST"])
 @require_auth
 def record_gdpr_consent() -> tuple[Response, int]:
     """Record GDPR consent."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            body = get_request_body()
-            from pbx.features.compliance_framework import GDPRComplianceEngine
-
-            engine = GDPRComplianceEngine(pbx_core.database, pbx_core.config)
-            if engine.record_consent(body):
-                return send_json({"success": True}), 200
-            return send_json({"error": "Failed to record consent"}, 500), 500
-        except Exception as e:
-            logger.error(f"Error recording GDPR consent: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("GDPR")
 
 
 @framework_bp.route("/compliance/gdpr/withdraw", methods=["POST"])
 @require_auth
 def withdraw_gdpr_consent() -> tuple[Response, int]:
     """Withdraw GDPR consent."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            body = get_request_body()
-            from pbx.features.compliance_framework import GDPRComplianceEngine
-
-            engine = GDPRComplianceEngine(pbx_core.database, pbx_core.config)
-            if engine.withdraw_consent(body.get("extension"), body.get("consent_type")):
-                return send_json({"success": True}), 200
-            return send_json({"error": "Failed to withdraw consent"}, 500), 500
-        except (KeyError, TypeError, ValueError) as e:
-            logger.error(f"Error withdrawing GDPR consent: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("GDPR")
 
 
 @framework_bp.route("/compliance/gdpr/request", methods=["POST"])
 @require_auth
 def create_gdpr_request() -> tuple[Response, int]:
     """Create GDPR data request."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            body = get_request_body()
-            from pbx.features.compliance_framework import GDPRComplianceEngine
-
-            engine = GDPRComplianceEngine(pbx_core.database, pbx_core.config)
-            request_id = engine.create_data_request(body)
-            if request_id:
-                return send_json({"request_id": request_id, "success": True}), 200
-            return send_json({"error": "Failed to create request"}, 500), 500
-        except Exception as e:
-            logger.error(f"Error creating GDPR request: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("GDPR")
 
 
 @framework_bp.route("/compliance/soc2/control", methods=["POST"])
@@ -1026,21 +962,7 @@ def register_soc2_control() -> tuple[Response, int]:
 @require_auth
 def log_pci_event() -> tuple[Response, int]:
     """Log PCI DSS event."""
-    pbx_core = get_pbx_core()
-    if pbx_core and pbx_core.database.enabled:
-        try:
-            body = get_request_body()
-            from pbx.features.compliance_framework import PCIDSSComplianceEngine
-
-            engine = PCIDSSComplianceEngine(pbx_core.database, pbx_core.config)
-            if engine.log_audit_event(body):
-                return send_json({"success": True}), 200
-            return send_json({"error": "Failed to log event"}, 500), 500
-        except Exception as e:
-            logger.error(f"Error logging PCI event: {e}")
-            return send_json({"error": str(e)}, 500), 500
-    else:
-        return send_json({"error": "Database not available"}, 500), 500
+    return _compliance_not_enabled("PCI DSS")
 
 
 # =============================================================================
@@ -1974,10 +1896,10 @@ def get_voice_profiles() -> tuple[Response, int]:
                 "user_id": p.user_id,
                 "extension": p.extension,
                 "status": p.status,
-                "enrollment_completed": p.enrollment_completed,
+                "enrollment_completed": p.enrollment_samples >= p.required_samples,
                 "created_at": p.created_at.isoformat(),
-                "verification_count": p.verification_count,
-                "fraud_attempts": p.fraud_attempts,
+                "verification_count": p.successful_verifications + p.failed_verifications,
+                "fraud_attempts": p.failed_verifications,
             }
             for p in vb.profiles.values()
         ]
@@ -2025,10 +1947,11 @@ def get_voice_profile(user_id: str) -> tuple[Response, int]:
                     "user_id": profile.user_id,
                     "extension": profile.extension,
                     "status": profile.status,
-                    "enrollment_completed": profile.enrollment_completed,
+                    "enrollment_completed": profile.enrollment_samples >= profile.required_samples,
                     "created_at": profile.created_at.isoformat(),
-                    "verification_count": profile.verification_count,
-                    "fraud_attempts": profile.fraud_attempts,
+                    "verification_count": profile.successful_verifications
+                    + profile.failed_verifications,
+                    "fraud_attempts": profile.failed_verifications,
                 }
             ), 200
         return send_json({"error": "Profile not found"}, 404), 404
@@ -2445,7 +2368,7 @@ def create_mobile_mapping() -> tuple[Response, int]:
         extension = body.get("extension")
         mobile_device = body.get("mobile_device")
 
-        if not all([business_number, extension, mobile_device]):
+        if not business_number or not extension or not mobile_device:
             return send_json(
                 {"error": "business_number, extension, and mobile_device required"}, 400
             ), 400
@@ -2653,7 +2576,7 @@ def add_voicemail_message() -> tuple[Response, int]:
         name = body.get("name")
         audio_path = body.get("audio_path")
 
-        if not all([message_id, name, audio_path]):
+        if not message_id or not name or not audio_path:
             return send_json({"error": "message_id, name, and audio_path required"}, 400), 400
 
         from pbx.features.predictive_voicemail_drop import get_voicemail_drop
@@ -3021,7 +2944,7 @@ def get_data_regions() -> tuple[Response, int]:
         from pbx.features.data_residency_controls import get_data_residency
 
         dr = get_data_residency(pbx_core.config if pbx_core else None)
-        regions = {region.value: config for region, config in dr.region_configs.items()}
+        regions = dict(dr.region_configs)
         return send_json({"regions": regions}), 200
     except Exception as e:
         logger.error(f"Error getting data regions: {e}")

@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 from flask import Blueprint, Response, current_app, redirect
+from werkzeug.wrappers import Response as WerkzeugResponse
 
 from pbx.api.utils import get_pbx_core, send_json
 from pbx.utils.logger import get_logger
@@ -37,7 +38,7 @@ def _get_health_checker() -> Any:
 
 
 @health_bp.route("/")
-def handle_root() -> Response:
+def handle_root() -> WerkzeugResponse:
     """Handle root path - redirect to admin panel."""
     return redirect("/admin", code=302)
 

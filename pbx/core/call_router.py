@@ -72,14 +72,18 @@ class CallRouter:
         # Check if this is an emergency call (911) - Kari's Law compliance
         # Must be handled first for immediate routing
         if pbx.karis_law and pbx.karis_law.is_emergency_number(to_ext):
-            return pbx._emergency_handler.handle_emergency_call(
-                from_ext, to_ext, call_id, message, from_addr
+            return bool(
+                pbx._emergency_handler.handle_emergency_call(
+                    from_ext, to_ext, call_id, message, from_addr
+                )
             )
 
         # Check if this is an auto attendant call (extension 0)
         if pbx.auto_attendant and to_ext == pbx.auto_attendant.get_extension():
-            return pbx._auto_attendant_handler.handle_auto_attendant(
-                from_ext, to_ext, call_id, message, from_addr
+            return bool(
+                pbx._auto_attendant_handler.handle_auto_attendant(
+                    from_ext, to_ext, call_id, message, from_addr
+                )
             )
 
         # Check if this is a voicemail access call (*xxxx pattern)
@@ -90,13 +94,17 @@ class CallRouter:
             and len(to_ext) <= 5
             and to_ext[1:].isdigit()
         ):
-            return pbx._voicemail_handler.handle_voicemail_access(
-                from_ext, to_ext, call_id, message, from_addr
+            return bool(
+                pbx._voicemail_handler.handle_voicemail_access(
+                    from_ext, to_ext, call_id, message, from_addr
+                )
             )
 
         # Check if this is a paging call (7xx pattern or all-call)
         if pbx.paging_system and pbx.paging_system.is_paging_extension(to_ext):
-            return pbx._paging_handler.handle_paging(from_ext, to_ext, call_id, message, from_addr)
+            return bool(
+                pbx._paging_handler.handle_paging(from_ext, to_ext, call_id, message, from_addr)
+            )
 
         # Check if destination extension is registered and not expired.
         # First check the in-memory registry.  If the extension is missing or
@@ -422,7 +430,7 @@ class CallRouter:
             message=invite_to_callee.build(),
             dest_addr=dest_ext_obj.address,
             send_fn=pbx.sip_server._send_message,
-            on_timeout=lambda cid=call_id: self._handle_invite_timeout(cid),
+            on_timeout=lambda: self._handle_invite_timeout(call_id),
         )
         invite_txn.start()
         call.invite_transaction = invite_txn
@@ -722,16 +730,17 @@ class CallRouter:
                             temp_file_created = True
                         pbx.logger.info(f"Using default greeting for extension {call.to_extension}")
 
-                    try:
-                        player.play_file(greeting_file)
-                        time.sleep(0.3)  # Brief pause before beep
-                    finally:
-                        # Clean up temp file only if we created one
-                        if temp_file_created:
-                            try:
-                                Path(greeting_file).unlink()
-                            except (OSError, FileNotFoundError) as e:
-                                pbx.logger.debug(f"Could not delete temp greeting file: {e}")
+                    if greeting_file:
+                        try:
+                            player.play_file(greeting_file)
+                            time.sleep(0.3)  # Brief pause before beep
+                        finally:
+                            # Clean up temp file only if we created one
+                            if temp_file_created:
+                                try:
+                                    Path(greeting_file).unlink()
+                                except (OSError, FileNotFoundError) as e:
+                                    pbx.logger.debug(f"Could not delete temp greeting file: {e}")
 
                     # Play beep tone (1000 Hz, 500ms)
                     player.play_beep(frequency=1000, duration_ms=500)

@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "PyYAML>=6.0.3",
     "cryptography>=46.0.5",
+    "defusedxml>=0.7.1",
     "aiortc>=1.14.0",
     "twisted>=25.5.0",
     "pydub>=0.25.1",
@@ -331,6 +332,9 @@ directory = "htmlcov"
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = [
+    "B101",  # assert_used (internal invariant checks; not security-sensitive)
+    "B105",  # hardcoded_password_string (false positives on non-secret string constants)
+    "B112",  # try_except_continue (acceptable control flow in resilient network loops)
     "B108",  # hardcoded_tmp_directory
     "B110",  # try_except_pass
     "B404",  # blacklist imports

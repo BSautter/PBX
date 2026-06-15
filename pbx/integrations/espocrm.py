@@ -4,6 +4,7 @@ Enables contact management, deal tracking, and call logging
 """
 
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from pbx.utils.logger import get_logger
 
@@ -82,11 +83,17 @@ class EspoCRMIntegration:
             headers = {"X-Api-Key": self.api_key, "Content-type": "application/json"}
 
             response = requests.request(
-                method=method, url=url, json=data, params=params, headers=headers, timeout=10
+                method=method,
+                url=url,
+                json=data,
+                params=params,
+                headers=cast("dict[str, str]", headers),
+                timeout=10,
             )
 
             if response.status_code in [200, 201]:
-                return response.json()
+                result: dict[Any, Any] | None = response.json()
+                return result
             self.logger.error(f"EspoCRM API error: {response.status_code} - {response.text}")
             return None
 
@@ -132,7 +139,7 @@ class EspoCRMIntegration:
             result = self._make_request("GET", "Contact", params=params)
 
             if result and result.get("list"):
-                contact = result["list"][0]
+                contact: dict[Any, Any] = result["list"][0]
                 self.logger.info(f"Found contact in EspoCRM: {contact.get('name')}")
                 return contact
 
@@ -321,7 +328,8 @@ class EspoCRMIntegration:
             result = self._make_request("GET", "Contact", params=params)
 
             if result and result.get("list"):
-                return result["list"]
+                contacts: list[dict[Any, Any]] = result["list"]
+                return contacts
 
             return []
 
@@ -403,7 +411,8 @@ class EspoCRMIntegration:
             result = self._make_request("GET", "Call", params=params)
 
             if result and result.get("list"):
-                return result["list"]
+                activities: list[dict[Any, Any]] = result["list"]
+                return activities
 
             return []
 
@@ -438,9 +447,8 @@ class EspoCRMIntegration:
                 activities = self.get_recent_activities(contact["id"], limit=5)
 
                 # Generate screen pop URL
-                screen_pop_url = (
-                    f"{self.api_url.replace('/api/v1', '')}/#Contact/view/{contact['id']}"
-                )
+                base_url = self.api_url.replace("/api/v1", "") if self.api_url else ""
+                screen_pop_url = f"{base_url}/#Contact/view/{contact['id']}"
 
                 return {
                     "success": True,

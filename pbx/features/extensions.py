@@ -12,7 +12,7 @@ from pbx.utils.logger import get_logger
 class Extension:
     """Represents a registered extension"""
 
-    def __init__(self, number: str, name: str, config: str) -> None:
+    def __init__(self, number: str, name: str, config: dict) -> None:
         """
         Initialize extension
 

@@ -4,8 +4,12 @@ Enables Zoom Phone, video meetings, and collaboration features
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
 from pbx.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from pbx.core.pbx import PBXCore
 
 try:
     import requests
@@ -75,7 +79,12 @@ class ZoomIntegration:
             auth = (self.client_id, self.client_secret)
 
             self.logger.info("Authenticating with Zoom API...")
-            response = requests.post(token_url, params=params, auth=auth, timeout=10)
+            response = requests.post(
+                token_url,
+                params=params,
+                auth=cast("tuple[str, str]", auth),
+                timeout=10,
+            )
 
             if response.status_code == 200:
                 data = response.json()
@@ -96,7 +105,11 @@ class ZoomIntegration:
             return False
 
     def create_meeting(
-        self, topic: str, start_time: str | None = None, duration_minutes: int = 60, **kwargs
+        self,
+        topic: str,
+        start_time: str | None = None,
+        duration_minutes: int = 60,
+        **kwargs: Any,
     ) -> dict | None:
         """
         Create a Zoom meeting
@@ -188,7 +201,7 @@ class ZoomIntegration:
         return self.create_meeting(topic=topic, duration_minutes=60)
 
     def route_to_zoom_phone(
-        self, from_number: str, to_number: str, pbx_core: object | None = None
+        self, from_number: str, to_number: str, pbx_core: "PBXCore | None" = None
     ) -> bool:
         """
         Route call through Zoom Phone SIP trunking

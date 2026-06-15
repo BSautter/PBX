@@ -73,7 +73,7 @@ def require_auth(f: Callable[..., Any]) -> Callable[..., Any]:
         is_authenticated, payload = verify_authentication()
         if not is_authenticated:
             return jsonify({"error": "Authentication required"}), 401
-        request.auth_payload = payload
+        request.auth_payload = payload  # type: ignore[attr-defined]
         return f(*args, **kwargs)
 
     return decorated
@@ -89,7 +89,7 @@ def require_admin(f: Callable[..., Any]) -> Callable[..., Any]:
             return jsonify({"error": "Authentication required"}), 401
         if not payload or not payload.get("is_admin", False):
             return jsonify({"error": "Admin privileges required"}), 403
-        request.auth_payload = payload
+        request.auth_payload = payload  # type: ignore[attr-defined]
         return f(*args, **kwargs)
 
     return decorated

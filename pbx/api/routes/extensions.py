@@ -22,7 +22,7 @@ def get_extensions() -> tuple[Response, int]:
     """Get extensions."""
     # SECURITY: Require authentication (but not necessarily admin)
     is_authenticated, payload = verify_authentication()
-    if not is_authenticated:
+    if not is_authenticated or payload is None:
         return jsonify({"error": "Authentication required"}), 401
 
     try:
@@ -96,7 +96,7 @@ def add_extension() -> tuple[Response, int]:
             return send_json({"error": "Extension number must be 4 digits"}, 400), 400
 
         # Validate password strength (minimum 8 characters)
-        if len(password) < 8:
+        if password is None or len(password) < 8:
             return send_json({"error": "Password must be at least 8 characters"}, 400), 400
 
         # Validate email format if provided

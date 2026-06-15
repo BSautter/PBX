@@ -65,7 +65,7 @@ def update_auto_attendant_config() -> tuple[Response, int]:
         aa = pbx_core.auto_attendant
 
         # Update configuration using the new update_config method
-        config_updates = {}
+        config_updates: dict[str, Any] = {}
         if "enabled" in data:
             config_updates["enabled"] = bool(data["enabled"])
         if "extension" in data:
@@ -1897,7 +1897,7 @@ def get_push_statistics() -> tuple[Response, int]:
             total_users = len(pbx_core.mobile_push.device_tokens)
 
             # Count by platform
-            platform_counts = {}
+            platform_counts: dict[str, int] = {}
             for devices in pbx_core.mobile_push.device_tokens.values():
                 for device in devices:
                     platform = device["platform"]

@@ -280,6 +280,10 @@ class JitsiIntegration:
             self.logger.warning("JWT library not available. Install with: pip install PyJWT")
             return ""
 
+        if not self.app_secret:
+            self.logger.warning("Cannot generate JWT token: app_secret not configured")
+            return ""
+
         try:
             now = int(time.time())
             payload = {

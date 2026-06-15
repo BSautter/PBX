@@ -83,7 +83,7 @@ def create_app(pbx_core: object | None = None) -> Flask:
             metrics_exporter = getattr(pbx_core, "metrics_exporter", None)
 
         if metrics_exporter and hasattr(request, "_prom_start_time"):
-            duration = _time.monotonic() - request._prom_start_time  # type: ignore[attr-defined]
+            duration = _time.monotonic() - request._prom_start_time
             endpoint = request.url_rule.rule if request.url_rule else request.path
             metrics_exporter.record_api_request(
                 method=request.method,
