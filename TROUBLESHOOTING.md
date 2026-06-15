@@ -971,7 +971,7 @@ When `api.port` in `config.yml` is changed from a previous value (e.g., 8080), p
    sudo journalctl -u pbx -n 50 | grep "API port"
 
    # Verify provisioning works
-   curl -H "Authorization: Bearer YOUR_TOKEN" \
+   curl -H "Authorization: Bearer $TOKEN" \
         http://localhost:9000/api/provisioning/devices | jq
    ```
 

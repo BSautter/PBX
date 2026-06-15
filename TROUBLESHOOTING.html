@@ -1315,7 +1315,7 @@
 <p>   sudo journalctl -u pbx -n 50 | grep "API port"</p>
 
 <p>   # Verify provisioning works</p>
-<p>   curl -H "Authorization: Bearer YOUR_TOKEN" \</p>
+<p>   curl -H "Authorization: Bearer $TOKEN" \</p>
 <p>        http://localhost:9000/api/provisioning/devices | jq</p>
    </code>`<code>
 
