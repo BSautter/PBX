@@ -256,7 +256,7 @@ class TestEmergencyNotificationSystemInit:
     def test_init_db_load_error(self, mock_pbx_core, base_config, mock_database) -> None:
         from pbx.features.emergency_notification import EmergencyNotificationSystem
 
-        mock_database.fetch_all.side_effect = Exception("db error")
+        mock_database.fetch_all.side_effect = ValueError("db error")
 
         ens = EmergencyNotificationSystem(
             pbx_core=mock_pbx_core, config=base_config, database=mock_database
@@ -343,7 +343,7 @@ class TestEmergencyContactManagement:
 
     def test_save_contact_db_error(self, ens, mock_database) -> None:
         ens.database = mock_database
-        mock_database.execute.side_effect = Exception("db error")
+        mock_database.execute.side_effect = ValueError("db error")
         # Should not raise
         ens.add_emergency_contact(name="Error Contact", extension="6001", priority=3)
 
@@ -417,7 +417,7 @@ class TestTriggerEmergencyNotification:
 
     def test_trigger_notification_db_save_error(self, ens, mock_database) -> None:
         ens.database = mock_database
-        mock_database.execute.side_effect = Exception("db error")
+        mock_database.execute.side_effect = ValueError("db error")
         result = ens.trigger_emergency_notification("911_call", {"caller": "1001"})
         assert result is True  # still succeeds in memory
 
@@ -869,7 +869,7 @@ class TestGetDbPlaceholder:
     def test_sqlite_placeholder(self, ens, mock_database) -> None:
         ens.database = mock_database
         mock_database.db_type = "sqlite"
-        assert ens._get_db_placeholder() == "?"
+        assert ens._get_db_placeholder() == "%s"
 
     def test_postgresql_placeholder(self, ens, mock_database) -> None:
         ens.database = mock_database

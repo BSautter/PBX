@@ -58,8 +58,8 @@ class TestVoicemailTranscription:
             value = int(32767.0 * 0.5 * (1 + (i % 100) / 100))
             samples.append(struct.pack("<h", value))
 
-        # Write WAV file
-        with wave.open(filepath, "w") as wav_file:
+        # Write WAV file (wave.open needs a str path, not a Path object)
+        with wave.open(str(filepath), "w") as wav_file:
             wav_file.setnchannels(1)  # Mono
             wav_file.setsampwidth(2)  # 16-bit
             wav_file.setframerate(sample_rate)

@@ -477,12 +477,12 @@ class TestSecurityAuditor:
 
         db = MagicMock()
         db.enabled = True
-        db.db_type = "sqlite"
+        db.db_type = "postgresql"
         auditor = SecurityAuditor(database=db)
         auditor.log_event("login_success", "user1")
         db.execute.assert_called_once()
         query = db.execute.call_args[0][0]
-        assert "?" in query
+        assert "%s" in query
 
     @patch("pbx.utils.security.get_logger")
     def test_log_event_database_error(self, mock_get_logger: MagicMock) -> None:
@@ -814,9 +814,9 @@ class TestThreatDetector:
         mock_get_logger.return_value = logger
         db = MagicMock()
         db.enabled = True
-        db.db_type = "sqlite"
+        db.db_type = "postgresql"
         # First two calls are execute for schema creation; then fetch_all fails
-        db.fetch_all.side_effect = Exception("load error")
+        db.fetch_all.side_effect = ValueError("load error")
         _detector = ThreatDetector(database=db, config={})
         logger.error.assert_called()
         assert "Failed to load blocked IPs" in logger.error.call_args[0][0]
@@ -1037,7 +1037,7 @@ class TestThreatDetector:
 
         db = MagicMock()
         db.enabled = True
-        db.db_type = "sqlite"
+        db.db_type = "postgresql"
         db.fetch_all.return_value = []
 
         detector = ThreatDetector(database=db, config={})
@@ -1045,7 +1045,7 @@ class TestThreatDetector:
         db.execute.reset_mock()
         detector.unblock_ip("1.2.3.4")
         db.execute.assert_called_once()
-        assert "?" in db.execute.call_args[0][0]
+        assert "%s" in db.execute.call_args[0][0]
 
     @patch("pbx.utils.security.get_logger")
     def test_unblock_ip_database_postgresql(self, mock_get_logger: MagicMock) -> None:
@@ -1433,10 +1433,10 @@ class TestThreatDetector:
 
         db = MagicMock()
         db.enabled = True
-        db.db_type = "sqlite"
+        db.db_type = "postgresql"
 
         # First fetch_all succeeds (during __init__), second one fails
-        db.fetch_all.side_effect = [[], Exception("query failed")]
+        db.fetch_all.side_effect = [[], ValueError("query failed")]
 
         detector = ThreatDetector(database=db, config={})
         summary = detector.get_threat_summary()
@@ -1465,12 +1465,12 @@ class TestThreatDetector:
 
         db = MagicMock()
         db.enabled = True
-        db.db_type = "sqlite"
+        db.db_type = "postgresql"
         db.fetch_all.return_value = []
 
         detector = ThreatDetector(database=db, config={})
         query = detector._get_active_blocks_query()
-        assert "datetime('now')" in query
+        assert "CURRENT_TIMESTAMP" in query
 
 
 # ---------------------------------------------------------------------------

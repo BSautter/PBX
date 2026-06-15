@@ -240,7 +240,26 @@ class TestSSOAuthServiceSAML:
     def test_handle_saml_response_success(self) -> None:
         """Test successful SAML response handling"""
         service = self._make_service()
-        result = service.handle_saml_response("<saml>response</saml>")
+        saml_xml = (
+            '<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"'
+            ' xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_resp1">'
+            "<saml:Assertion>"
+            "<saml:Subject><saml:NameID>user@example.com</saml:NameID></saml:Subject>"
+            "<saml:AttributeStatement>"
+            '<saml:Attribute Name="displayName">'
+            "<saml:AttributeValue>John Doe</saml:AttributeValue>"
+            "</saml:Attribute>"
+            '<saml:Attribute Name="email">'
+            "<saml:AttributeValue>user@example.com</saml:AttributeValue>"
+            "</saml:Attribute>"
+            '<saml:Attribute Name="groups">'
+            "<saml:AttributeValue>admins</saml:AttributeValue>"
+            "</saml:Attribute>"
+            "</saml:AttributeStatement>"
+            "</saml:Assertion>"
+            "</samlp:Response>"
+        )
+        result = service.handle_saml_response(saml_xml)
 
         assert "session_id" in result
         assert "user_info" in result
@@ -319,8 +338,29 @@ class TestSSOAuthServiceOAuth:
 
         assert result == {"error": "OAuth not enabled"}
 
-    def test_handle_oauth_callback_success(self) -> None:
+    @patch("urllib.request.urlopen")
+    def test_handle_oauth_callback_success(self, mock_urlopen) -> None:
         """Test successful OAuth callback handling"""
+        import json
+
+        # First urlopen call: token exchange -> returns access_token
+        token_resp = MagicMock()
+        token_resp.read.return_value = json.dumps({"access_token": "test_token_123"}).encode(
+            "utf-8"
+        )
+        token_resp.__enter__ = lambda s: s
+        token_resp.__exit__ = MagicMock(return_value=False)
+
+        # Second urlopen call: userinfo -> returns user details
+        userinfo_resp = MagicMock()
+        userinfo_resp.read.return_value = json.dumps(
+            {"sub": "user@example.com", "name": "Test User", "email": "user@example.com"}
+        ).encode("utf-8")
+        userinfo_resp.__enter__ = lambda s: s
+        userinfo_resp.__exit__ = MagicMock(return_value=False)
+
+        mock_urlopen.side_effect = [token_resp, userinfo_resp]
+
         service = self._make_service()
         result = service.handle_oauth_callback("auth_code_123", "state_abc")
 

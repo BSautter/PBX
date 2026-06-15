@@ -231,7 +231,7 @@ class SecurityMonitor:
             }
 
             # Send webhook
-            self.webhook_system.trigger("security.compliance_alert", event_data)
+            self.webhook_system.trigger_event("security.compliance_alert", event_data)
             self.logger.info(f"Security alert sent via webhook (severity: {severity})")
         except (KeyError, TypeError, ValueError) as e:
             self.logger.error(f"Failed to send security alert via webhook: {e}")

@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 from pbx.core.call import Call, CallState
 from pbx.core.pbx import PBXCore
@@ -25,7 +26,8 @@ def test_complete_voicemail_flow() -> None:
         # Step 1: Setup PBX and voicemail system
         config = Config("config.yml")
         vm_system = VoicemailSystem(storage_path=temp_dir, config=config)
-        pbx = PBXCore("config.yml")
+        with patch("pbx.core.pbx.FeatureInitializer.initialize"):
+            pbx = PBXCore("config.yml")
         pbx.voicemail_system = vm_system
 
         # Step 2: Simulate recording a voicemail
@@ -101,7 +103,8 @@ def test_multiple_voicemails() -> None:
     try:
         config = Config("config.yml")
         vm_system = VoicemailSystem(storage_path=temp_dir, config=config)
-        pbx = PBXCore("config.yml")
+        with patch("pbx.core.pbx.FeatureInitializer.initialize"):
+            pbx = PBXCore("config.yml")
         pbx.voicemail_system = vm_system
 
         # Create multiple voicemail messages

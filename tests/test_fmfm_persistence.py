@@ -5,6 +5,8 @@ Test Find Me/Follow Me database persistence
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from pbx.features.find_me_follow_me import FindMeFollowMe
 from pbx.utils.database import DatabaseBackend
 
@@ -24,7 +26,8 @@ class TestFMFMPersistence:
         }
 
         self.database = DatabaseBackend(self.config)
-        self.database.connect()
+        if not self.database.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
 
     def teardown_method(self) -> None:
         """Clean up test database"""

@@ -15,6 +15,9 @@ class TestPhoneModelDetection:
         # Create a minimal test instance with just the needed method
         self.pbx = Mock(spec=PBXCore)
         self.pbx.logger = Mock()  # Mock logger for unrecognised phone logging
+        # _device_model_cache is an instance attribute set in __init__, so it is
+        # not part of the spec; provide it for the cache lookups in the method.
+        self.pbx._device_model_cache = {}
         # Copy the actual method from the class to our mock
         self.pbx._detect_phone_model = PBXCore._detect_phone_model.__get__(self.pbx)
 

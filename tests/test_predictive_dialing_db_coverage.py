@@ -1,9 +1,12 @@
 """
 Comprehensive tests for Predictive Dialing Database layer.
-Tests all public methods, SQL paths (PostgreSQL and SQLite), and error handling.
+Tests all public methods, SQL paths (PostgreSQL), and error handling.
 """
 
+from __future__ import annotations
+
 import json
+import typing
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -31,16 +34,16 @@ class TestPredictiveDialingDatabaseInit:
 
 
 @pytest.mark.unit
-class TestCreateTablesSQLite:
-    """Tests for create_tables with SQLite backend."""
+class TestCreateTablesDefault:
+    """Tests for create_tables with PostgreSQL backend."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_create_tables_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_create_tables_default_success(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -53,31 +56,29 @@ class TestCreateTablesSQLite:
         mock_logger.info.assert_called_with("Predictive dialing tables created successfully")
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_create_tables_sqlite_sql_contains_autoincrement(
-        self, mock_get_logger: MagicMock
-    ) -> None:
+    def test_create_tables_sql_contains_serial(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
         db = PredictiveDialingDatabase(mock_db)
         db.create_tables()
 
-        # Verify SQLite-specific SQL was used (AUTOINCREMENT, not SERIAL)
+        # Verify PostgreSQL-specific SQL was used (SERIAL, not AUTOINCREMENT)
         first_call_sql = mock_cursor.execute.call_args_list[0][0][0]
-        assert "AUTOINCREMENT" in first_call_sql
-        assert "SERIAL" not in first_call_sql
+        assert "SERIAL" in first_call_sql
+        assert "AUTOINCREMENT" not in first_call_sql
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_create_tables_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_create_tables_default_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("table creation failed")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -165,11 +166,11 @@ class TestSaveCampaign:
     """Tests for save_campaign."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_campaign_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_save_campaign_postgresql_insert_success(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -187,7 +188,8 @@ class TestSaveCampaign:
         assert result is True
         mock_cursor.execute.assert_called_once()
         call_sql = mock_cursor.execute.call_args[0][0]
-        assert "INSERT OR REPLACE" in call_sql
+        assert "ON CONFLICT" in call_sql
+        assert "%s" in call_sql
         params = mock_cursor.execute.call_args[0][1]
         assert params == ("camp-1", "Test Campaign", "predictive", "active", 5, 1800)
         mock_db.connection.commit.assert_called_once()
@@ -225,7 +227,7 @@ class TestSaveCampaign:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -249,7 +251,7 @@ class TestSaveCampaign:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -262,15 +264,15 @@ class TestSaveCampaign:
         mock_logger.error.assert_called_once()
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_campaign_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_save_campaign_execute_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
-        mock_cursor.execute.side_effect = Exception("insert failed")
+        mock_cursor.execute.side_effect = ValueError("insert failed")
 
         db = PredictiveDialingDatabase(mock_db)
         campaign_data = {
@@ -290,7 +292,7 @@ class TestSaveCampaign:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = TypeError("bad type")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -306,11 +308,11 @@ class TestSaveContact:
     """Tests for save_contact."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_contact_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_save_contact_postgresql_insert_success(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -325,7 +327,8 @@ class TestSaveContact:
         assert result is True
         mock_cursor.execute.assert_called_once()
         call_sql = mock_cursor.execute.call_args[0][0]
-        assert "INSERT OR REPLACE" in call_sql
+        assert "ON CONFLICT" in call_sql
+        assert "%s" in call_sql
         params = mock_cursor.execute.call_args[0][1]
         assert params[0] == "camp-1"
         assert params[1] == "contact-1"
@@ -360,7 +363,7 @@ class TestSaveContact:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -381,7 +384,7 @@ class TestSaveContact:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -394,15 +397,15 @@ class TestSaveContact:
         mock_logger.error.assert_called_once()
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_contact_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_save_contact_execute_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
-        mock_cursor.execute.side_effect = Exception("insert failed")
+        mock_cursor.execute.side_effect = ValueError("insert failed")
 
         db = PredictiveDialingDatabase(mock_db)
         contact_data = {"contact_id": "c1", "phone_number": "555"}
@@ -416,7 +419,7 @@ class TestSaveContact:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -433,11 +436,11 @@ class TestSaveAttempt:
     """Tests for save_attempt."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_attempt_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_save_attempt_postgresql_insert_success(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -457,7 +460,7 @@ class TestSaveAttempt:
         # First call: INSERT into dialing_attempts
         insert_sql = mock_cursor.execute.call_args_list[0][0][0]
         assert "INSERT INTO dialing_attempts" in insert_sql
-        assert "?" in insert_sql
+        assert "%s" in insert_sql
         insert_params = mock_cursor.execute.call_args_list[0][0][1]
         assert insert_params[0] == "camp-1"
         assert insert_params[1] == "contact-1"
@@ -510,7 +513,7 @@ class TestSaveAttempt:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -532,15 +535,15 @@ class TestSaveAttempt:
         assert update_params[1] == "attempted"  # default status
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_save_attempt_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_save_attempt_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
-        mock_cursor.execute.side_effect = Exception("insert failed")
+        mock_cursor.execute.side_effect = ValueError("insert failed")
 
         db = PredictiveDialingDatabase(mock_db)
         db.save_attempt("camp-1", "contact-1", {"call_id": "c1"})
@@ -554,8 +557,8 @@ class TestSaveAttempt:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
-        mock_db.connection.cursor.side_effect = Exception("cursor error")
+        mock_db.db_type = "postgresql"
+        mock_db.connection.cursor.side_effect = ValueError("cursor error")
 
         db = PredictiveDialingDatabase(mock_db)
         db.save_attempt("camp-1", "contact-1", {})
@@ -568,11 +571,11 @@ class TestUpdateCampaignStats:
     """Tests for update_campaign_stats."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_update_stats_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_update_stats_postgresql_success(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -588,7 +591,7 @@ class TestUpdateCampaignStats:
         mock_cursor.execute.assert_called_once()
         sql = mock_cursor.execute.call_args[0][0]
         assert "UPDATE dialing_campaigns" in sql
-        assert "?" in sql
+        assert "%s" in sql
         params = mock_cursor.execute.call_args[0][1]
         assert params == (100, 50, 40, 10, "camp-1")
         mock_db.connection.commit.assert_called_once()
@@ -622,7 +625,7 @@ class TestUpdateCampaignStats:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -634,15 +637,15 @@ class TestUpdateCampaignStats:
         assert params == (0, 0, 0, 0, "camp-1")
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_update_stats_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_update_stats_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
-        mock_cursor.execute.side_effect = Exception("update failed")
+        mock_cursor.execute.side_effect = ValueError("update failed")
 
         db = PredictiveDialingDatabase(mock_db)
         db.update_campaign_stats("camp-1", {"total_contacts": 10})
@@ -654,7 +657,7 @@ class TestUpdateCampaignStats:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
 
@@ -671,11 +674,11 @@ class TestGetCampaign:
     """Tests for get_campaign."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_campaign_sqlite_found(self, mock_get_logger: MagicMock) -> None:
+    def test_get_campaign_postgresql_found(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (
@@ -721,7 +724,7 @@ class TestGetCampaign:
         assert result["total_contacts"] == 100
 
         sql = mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
     def test_get_campaign_postgresql_found(self, mock_get_logger: MagicMock) -> None:
@@ -753,7 +756,7 @@ class TestGetCampaign:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = None
@@ -764,12 +767,12 @@ class TestGetCampaign:
         assert result is None
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_campaign_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_get_campaign_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("query failed")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -788,7 +791,7 @@ class TestGetAllCampaigns:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.description = [("id",), ("campaign_id",), ("name",)]
@@ -809,7 +812,7 @@ class TestGetAllCampaigns:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.description = [("id",), ("campaign_id",), ("name",)]
@@ -821,12 +824,12 @@ class TestGetAllCampaigns:
         assert result == []
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_all_campaigns_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_get_all_campaigns_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("query failed")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -840,7 +843,7 @@ class TestGetAllCampaigns:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.description = [("id",)]
@@ -858,11 +861,11 @@ class TestGetCampaignContacts:
     """Tests for get_campaign_contacts."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_contacts_sqlite_success(self, mock_get_logger: MagicMock) -> None:
+    def test_get_contacts_postgresql_success(self, mock_get_logger: MagicMock) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.description = [
@@ -884,7 +887,7 @@ class TestGetCampaignContacts:
         assert result[0]["contact_id"] == "c1"
         assert result[1]["status"] == "completed"
         sql = mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         assert "ORDER BY created_at" in sql
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
@@ -910,7 +913,7 @@ class TestGetCampaignContacts:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.description = [("id",)]
@@ -922,12 +925,12 @@ class TestGetCampaignContacts:
         assert result == []
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_contacts_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_get_contacts_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("query failed")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -942,13 +945,13 @@ class TestGetStatistics:
     """Tests for get_statistics."""
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_statistics_campaign_specific_sqlite_found(
+    def test_get_statistics_campaign_specific_postgresql_found(
         self, mock_get_logger: MagicMock
     ) -> None:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (
@@ -972,7 +975,7 @@ class TestGetStatistics:
         assert result is not None
         assert result["campaign_id"] == "camp-1"
         sql = mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
     def test_get_statistics_campaign_specific_postgresql_found(
@@ -999,7 +1002,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = None
@@ -1014,7 +1017,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (5, 500, 300, 100)
@@ -1032,7 +1035,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         # SUM returns None when no rows exist
@@ -1051,7 +1054,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = None
@@ -1066,7 +1069,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (2, 100, 80, 20)
@@ -1081,12 +1084,12 @@ class TestGetStatistics:
         assert "SUM" in sql
 
     @patch("pbx.features.predictive_dialing_db.get_logger")
-    def test_get_statistics_sqlite_error(self, mock_get_logger: MagicMock) -> None:
+    def test_get_statistics_postgresql_error(self, mock_get_logger: MagicMock) -> None:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("stats failed")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -1101,7 +1104,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = mock_logger
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_db.connection.cursor.side_effect = Exception("query error")
 
         db = PredictiveDialingDatabase(mock_db)
@@ -1115,7 +1118,7 @@ class TestGetStatistics:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (1, 10, 5, 3)
@@ -1140,7 +1143,7 @@ class TestGetStatisticsEmptyString:
         mock_get_logger.return_value = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
+        mock_db.db_type = "postgresql"
         mock_cursor = MagicMock()
         mock_db.connection.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (1, 10, 5, 3)
@@ -1152,18 +1155,68 @@ class TestGetStatisticsEmptyString:
         assert "total_campaigns" in result
 
 
+class _PgToSqliteCursor:
+    """Wraps a real SQLite cursor, translating PostgreSQL SQL to SQLite on the fly."""
+
+    def __init__(self, real_cursor):
+        self._cursor = real_cursor
+
+    @staticmethod
+    def _translate(sql: str) -> str:
+        sql = sql.replace("%s", "?")
+        sql = sql.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+        sql = sql.replace("JSONB", "TEXT")
+        sql = sql.replace(
+            "VARCHAR(100) REFERENCES dialing_campaigns(campaign_id) ON DELETE CASCADE",
+            "VARCHAR(100)",
+        )
+        # ON CONFLICT ... DO UPDATE -> SQLite INSERT OR REPLACE workaround
+        # We handle this by rewriting to INSERT OR REPLACE
+        import re
+
+        sql = re.sub(
+            r"INSERT INTO (\S+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)\s*ON CONFLICT[^;]*",
+            r"INSERT OR REPLACE INTO \1 (\2) VALUES (\3)",
+            sql,
+            flags=re.DOTALL,
+        )
+        return sql
+
+    def execute(self, sql: str, params: tuple = ()) -> typing.Any:
+        return self._cursor.execute(self._translate(sql), params)
+
+    def __getattr__(self, name: str) -> typing.Any:
+        return getattr(self._cursor, name)
+
+
+class _PgToSqliteConnection:
+    """Wraps a real SQLite connection, returning translating cursors."""
+
+    def __init__(self, real_conn):
+        self._conn = real_conn
+
+    def cursor(self) -> _PgToSqliteCursor:
+        return _PgToSqliteCursor(self._conn.cursor())
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def __getattr__(self, name: str) -> typing.Any:
+        return getattr(self._conn, name)
+
+
 @pytest.mark.unit
 class TestDatabaseIntegrationWithRealSQLite:
-    """Integration-style tests using a real in-memory SQLite database."""
+    """Integration-style tests using a real in-memory SQLite database with PG->SQLite translation."""
 
     def _make_db_backend(self) -> MagicMock:
-        """Create a mock db_backend wrapping a real SQLite connection."""
+        """Create a mock db_backend wrapping a real SQLite connection with SQL translation."""
         import sqlite3 as sqlite3_mod
 
         conn = sqlite3_mod.connect(":memory:")
         mock_db = MagicMock()
-        mock_db.db_type = "sqlite"
-        mock_db.connection = conn
+        mock_db.db_type = "postgresql"
+        mock_db.connection = _PgToSqliteConnection(conn)
         return mock_db
 
     @patch("pbx.features.predictive_dialing_db.get_logger")

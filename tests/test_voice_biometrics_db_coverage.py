@@ -56,9 +56,9 @@ class TestVoiceBiometricsDatabaseCreateTables:
         assert self.mock_cursor.execute.call_count == 4
         self.mock_db.connection.commit.assert_called_once()
 
-    def test_create_tables_sqlite_sql_content(self) -> None:
-        """Test SQLite SQL contains correct table names and syntax."""
-        self.mock_db.db_type = "sqlite"
+    def test_create_tables_postgresql_sql_content_tables(self) -> None:
+        """Test PostgreSQL SQL contains correct table names and syntax."""
+        self.mock_db.db_type = "postgresql"
         self.db.create_tables()
         calls = self.mock_cursor.execute.call_args_list
         sql_texts = [c[0][0] for c in calls]
@@ -66,8 +66,8 @@ class TestVoiceBiometricsDatabaseCreateTables:
         assert any("voice_enrollments" in sql for sql in sql_texts)
         assert any("voice_verifications" in sql for sql in sql_texts)
         assert any("voice_fraud_detections" in sql for sql in sql_texts)
-        assert any("AUTOINCREMENT" in sql for sql in sql_texts)
-        assert any("BLOB" in sql for sql in sql_texts)
+        assert any("SERIAL PRIMARY KEY" in sql for sql in sql_texts)
+        assert any("BYTEA" in sql for sql in sql_texts)
 
     def test_create_tables_postgresql_sql_content(self) -> None:
         """Test PostgreSQL SQL contains correct syntax."""
@@ -106,15 +106,16 @@ class TestVoiceBiometricsDatabaseSaveProfile:
         with patch("pbx.features.voice_biometrics_db.get_logger"):
             self.db = VoiceBiometricsDatabase(self.mock_db)
 
-    def test_save_profile_sqlite(self) -> None:
-        """Test saving profile with SQLite backend returns lastrowid."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.lastrowid = 42
+    def test_save_profile_postgresql_returns_id(self) -> None:
+        """Test saving profile with PostgreSQL backend returns fetched id."""
+        self.mock_db.db_type = "postgresql"
+        self.mock_cursor.fetchone.return_value = (42,)
         result = self.db.save_profile("user-001", "1001", "enrolling")
         assert result == 42
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "INSERT OR REPLACE" in sql
+        assert "ON CONFLICT" in sql
+        assert "RETURNING id" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params == ("user-001", "1001", "enrolling")
         self.mock_db.connection.commit.assert_called_once()
@@ -150,9 +151,9 @@ class TestVoiceBiometricsDatabaseGetProfile:
         with patch("pbx.features.voice_biometrics_db.get_logger"):
             self.db = VoiceBiometricsDatabase(self.mock_db)
 
-    def test_get_profile_found_sqlite(self) -> None:
-        """Test getting profile that exists with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+    def test_get_profile_found_postgresql(self) -> None:
+        """Test getting profile that exists with PostgreSQL backend."""
+        self.mock_db.db_type = "postgresql"
         self.mock_cursor.fetchone.return_value = (1, "user-001", "1001", "enrolled", 3, 3)
         self.mock_cursor.description = [
             ("id",),
@@ -166,21 +167,6 @@ class TestVoiceBiometricsDatabaseGetProfile:
         assert result is not None
         assert result["user_id"] == "user-001"
         assert result["status"] == "enrolled"
-        sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
-
-    def test_get_profile_found_postgresql(self) -> None:
-        """Test getting profile that exists with PostgreSQL backend."""
-        self.mock_db.db_type = "postgresql"
-        self.mock_cursor.fetchone.return_value = (1, "user-001", "1001", "enrolled")
-        self.mock_cursor.description = [
-            ("id",),
-            ("user_id",),
-            ("extension",),
-            ("status",),
-        ]
-        result = self.db.get_profile("user-001")
-        assert result is not None
         sql = self.mock_cursor.execute.call_args[0][0]
         assert "%s" in sql
 
@@ -212,26 +198,17 @@ class TestVoiceBiometricsDatabaseUpdateEnrollmentProgress:
         with patch("pbx.features.voice_biometrics_db.get_logger"):
             self.db = VoiceBiometricsDatabase(self.mock_db)
 
-    def test_update_enrollment_progress_sqlite(self) -> None:
-        """Test updating enrollment progress with SQLite backend."""
-        self.mock_db.db_type = "sqlite"
+    def test_update_enrollment_progress_postgresql(self) -> None:
+        """Test updating enrollment progress with PostgreSQL backend."""
+        self.mock_db.db_type = "postgresql"
         self.db.update_enrollment_progress("user-001", 2)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         assert "enrollment_samples" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params == (2, "user-001")
         self.mock_db.connection.commit.assert_called_once()
-
-    def test_update_enrollment_progress_postgresql(self) -> None:
-        """Test updating enrollment progress with PostgreSQL backend."""
-        self.mock_db.db_type = "postgresql"
-        self.db.update_enrollment_progress("user-001", 3)
-        sql = self.mock_cursor.execute.call_args[0][0]
-        assert "%s" in sql
-        params = self.mock_cursor.execute.call_args[0][1]
-        assert params == (3, "user-001")
 
     def test_update_enrollment_progress_error(self) -> None:
         """Test updating enrollment progress handles Exception."""
@@ -468,18 +445,18 @@ class TestVoiceBiometricsDatabaseSaveFraudDetection:
         with patch("pbx.features.voice_biometrics_db.get_logger"):
             self.db = VoiceBiometricsDatabase(self.mock_db)
 
-    def test_save_fraud_detection_sqlite_fraud_true(self) -> None:
-        """Test saving fraud detection with fraud=True using SQLite."""
-        self.mock_db.db_type = "sqlite"
+    def test_save_fraud_detection_postgresql_fraud_true(self) -> None:
+        """Test saving fraud detection with fraud=True using PostgreSQL."""
+        self.mock_db.db_type = "postgresql"
         indicators = ["voice_mismatch", "unusual_pattern"]
         self.db.save_fraud_detection("call-001", "5551234567", True, 0.85, indicators)
         self.mock_cursor.execute.assert_called_once()
         sql = self.mock_cursor.execute.call_args[0][0]
-        assert "?" in sql
+        assert "%s" in sql
         params = self.mock_cursor.execute.call_args[0][1]
         assert params[0] == "call-001"
         assert params[1] == "5551234567"
-        assert params[2] == 1  # fraud_detected True -> 1
+        assert params[2] is True  # PostgreSQL keeps bool
         assert params[3] == 0.85
         assert params[4] == json.dumps(indicators)
         self.mock_db.connection.commit.assert_called_once()
@@ -509,9 +486,9 @@ class TestVoiceBiometricsDatabaseSaveFraudDetection:
         assert params[4] == "[]"
 
     def test_save_fraud_detection_error(self) -> None:
-        """Test saving fraud detection handles Exception."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.execute.side_effect = Exception("insert error")
+        """Test saving fraud detection handles ValueError."""
+        self.mock_db.db_type = "postgresql"
+        self.mock_cursor.execute.side_effect = ValueError("insert error")
         self.db.save_fraud_detection("call-001", "caller", True, 0.5, [])
         self.db.logger.error.assert_called_once()
 
@@ -574,16 +551,6 @@ class TestVoiceBiometricsDatabaseGetStatistics:
         assert result["total_profiles"] == 100
         assert result["enrolled_profiles"] == 75
         assert result["failed_verifications"] == 50  # 500 - 450
-
-    def test_get_statistics_sqlite_queries(self) -> None:
-        """Test statistics uses correct SQLite queries."""
-        self.mock_db.db_type = "sqlite"
-        self.mock_cursor.fetchone.side_effect = [(0,), (0,), (0,), (0,), (0,)]
-        self.db.get_statistics()
-        calls = self.mock_cursor.execute.call_args_list
-        sql_texts = [c[0][0] for c in calls]
-        assert any("verified = 1" in sql for sql in sql_texts)
-        assert any("fraud_detected = 1" in sql for sql in sql_texts)
 
     def test_get_statistics_postgresql_queries(self) -> None:
         """Test statistics uses correct PostgreSQL queries."""

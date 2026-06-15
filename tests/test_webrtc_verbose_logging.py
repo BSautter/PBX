@@ -56,6 +56,16 @@ def test_verbose_logging_enabled() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
     signaling = WebRTCSignalingServer(config)
@@ -102,6 +112,16 @@ def test_verbose_logging_in_offer_handling() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
     signaling = WebRTCSignalingServer(config)
@@ -162,6 +182,16 @@ def test_gateway_verbose_logging() -> bool:
     from pbx.utils.logger import get_logger
 
     logger = get_logger()
+    # Reset capture state: a prior test may have left extra handlers, filters,
+    # or a higher level on the shared singleton logger that would suppress
+    # these records.
+    logger.handlers.clear()
+    logger.filters.clear()
+    # A prior test's logging.config.dictConfig/fileConfig (default
+    # disable_existing_loggers=True) can leave this logger disabled, which drops
+    # all records regardless of level/handlers.
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
     gateway = WebRTCGateway(pbx_core)

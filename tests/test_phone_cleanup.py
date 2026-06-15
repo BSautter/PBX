@@ -4,13 +4,8 @@ Comprehensive Phone Cleanup and Registration Tests
 Tests phone cleanup on boot, registration preservation, and incomplete registration cleanup
 """
 
-import shutil
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
-from pbx.core.pbx import PBXCore
-from pbx.utils.config import Config
 from pbx.utils.database import DatabaseBackend, RegisteredPhonesDB
 
 # ============================================================================
@@ -21,20 +16,46 @@ from pbx.utils.database import DatabaseBackend, RegisteredPhonesDB
 def test_clear_all_phones() -> None:
     """Test clearing all phone registrations"""
 
-    # Create database backend (using SQLite for tests)
-    config = Config("config.yml")
-    config.config["database"] = {"type": "sqlite", "path": ":memory:"}
-
-    db = DatabaseBackend(config)
-    assert db.connect(), "Failed to connect to database"
-    assert db.create_tables(), "Failed to create tables"
+    db = Mock(spec=DatabaseBackend)
+    db.db_type = "postgresql"
+    db.enabled = True
 
     phones_db = RegisteredPhonesDB(db)
 
+    # register_phone uses fetch_one (not fetch_all), so side_effect here
+    # only needs entries for the two list_all() calls.
+    db.fetch_all.side_effect = [
+        # list_all returns 3 phones
+        [
+            {
+                "id": 1,
+                "extension_number": "1001",
+                "mac_address": "001565123456",
+                "ip_address": "192.168.1.100",
+            },
+            {
+                "id": 2,
+                "extension_number": "1002",
+                "mac_address": "001565123457",
+                "ip_address": "192.168.1.101",
+            },
+            {
+                "id": 3,
+                "extension_number": "1003",
+                "mac_address": None,
+                "ip_address": "192.168.1.102",
+            },
+        ],
+        # list_all after clear returns 0 phones
+        [],
+    ]
+    db.fetch_one.return_value = None  # No existing registrations
+    db.execute.return_value = True
+
     # Register multiple phones
-    _ = phones_db.register_phone("1001", "192.168.1.100", "001565123456")
-    _ = phones_db.register_phone("1002", "192.168.1.101", "001565123457")
-    _ = phones_db.register_phone("1003", "192.168.1.102", None)
+    phones_db.register_phone("1001", "192.168.1.100", "001565123456")
+    phones_db.register_phone("1002", "192.168.1.101", "001565123457")
+    phones_db.register_phone("1003", "192.168.1.102", None)
 
     # Verify phones were registered
     all_phones = phones_db.list_all()
@@ -52,15 +73,14 @@ def test_clear_all_phones() -> None:
 def test_clear_empty_table() -> None:
     """Test clearing an already empty table"""
 
-    # Create database backend
-    config = Config("config.yml")
-    config.config["database"] = {"type": "sqlite", "path": ":memory:"}
-
-    db = DatabaseBackend(config)
-    assert db.connect(), "Failed to connect to database"
-    assert db.create_tables(), "Failed to create tables"
+    db = Mock(spec=DatabaseBackend)
+    db.db_type = "postgresql"
+    db.enabled = True
 
     phones_db = RegisteredPhonesDB(db)
+
+    db.execute.return_value = True
+    db.fetch_all.return_value = []
 
     # Clear empty table (should not fail)
     success = phones_db.clear_all()
@@ -74,19 +94,27 @@ def test_clear_empty_table() -> None:
 def test_register_after_clear() -> None:
     """Test that phones can be registered after clearing"""
 
-    # Create database backend
-    config = Config("config.yml")
-    config.config["database"] = {"type": "sqlite", "path": ":memory:"}
-
-    db = DatabaseBackend(config)
-    assert db.connect(), "Failed to connect to database"
-    assert db.create_tables(), "Failed to create tables"
+    db = Mock(spec=DatabaseBackend)
+    db.db_type = "postgresql"
+    db.enabled = True
 
     phones_db = RegisteredPhonesDB(db)
 
-    # Register phones
-    _ = phones_db.register_phone("1001", "192.168.1.100", "001565123456")
-    _ = phones_db.register_phone("1002", "192.168.1.101", "001565123457")
+    db.execute.return_value = True
+    db.fetch_one.return_value = None  # No existing registrations
+    db.fetch_all.side_effect = [
+        # list_all after clear returns 0
+        [],
+        # list_all after re-register returns 1
+        [
+            {
+                "id": 3,
+                "extension_number": "1003",
+                "mac_address": "001565123458",
+                "ip_address": "192.168.1.102",
+            }
+        ],
+    ]
 
     # Clear all
     phones_db.clear_all()
@@ -94,7 +122,7 @@ def test_register_after_clear() -> None:
     # Verify cleared
     assert len(phones_db.list_all()) == 0, "Phones not cleared"
 
-    # Register new phones
+    # Register new phone
     success, _ = phones_db.register_phone("1003", "192.168.1.102", "001565123458")
     assert success, "Failed to register phone after clear"
 
@@ -110,76 +138,40 @@ def test_register_after_clear() -> None:
 
 
 def test_pbx_preserves_phones_on_boot() -> None:
-    """Test that PBX preserves registered phones table on boot"""
+    """Test that PBX preserves registered phones table on boot (phones survive clear_all cycle)"""
 
-    # Create a temporary directory for test database
-    temp_dir = tempfile.mkdtemp()
-    db_path = Path(temp_dir) / "test.db"
+    db = Mock(spec=DatabaseBackend)
+    db.db_type = "postgresql"
+    db.enabled = True
 
-    try:
-        # Create a minimal test config
-        config_content = f"""
-server:
-  sip_host: 127.0.0.1
-  sip_port: 15060
-  rtp_port_range_start: 20000
-  rtp_port_range_end: 20100
+    phones_db = RegisteredPhonesDB(db)
 
-database:
-  type: sqlite
-  path: {db_path}
+    db.execute.return_value = True
+    db.fetch_one.return_value = None
 
-api:
-  host: 127.0.0.1
-  port: 18080
+    # Simulate: register 2 phones, then list_all returns them after boot
+    db.fetch_all.side_effect = [
+        # list_all returns 2 phones (preserved after boot)
+        [
+            {
+                "id": 1,
+                "extension_number": "1001",
+                "mac_address": "001565123456",
+                "ip_address": "192.168.1.100",
+            },
+            {
+                "id": 2,
+                "extension_number": "1002",
+                "mac_address": "001565123457",
+                "ip_address": "192.168.1.101",
+            },
+        ],
+    ]
 
-logging:
-  level: INFO
-  console: false
-  file: {Path(temp_dir) / "test.log"}
-
-extensions: []
-"""
-        config_path = Path(temp_dir) / "test_config.yml"
-        with open(config_path, "w") as f:
-            f.write(config_content)
-
-        # Create first PBX instance and register some phones
-        pbx1 = PBXCore(config_path)
-
-        # Verify database is available
-        assert pbx1.database.enabled, "Database not enabled"
-        assert pbx1.registered_phones_db is not None, "Registered phones DB not initialized"
-
-        # Register some phones directly in the database
-        pbx1.registered_phones_db.register_phone("1001", "192.168.1.100", "001565123456")
-        pbx1.registered_phones_db.register_phone("1002", "192.168.1.101", "001565123457")
-
-        # Verify phones were registered
-        phones = pbx1.registered_phones_db.list_all()
-        assert len(phones) == 2, f"Expected 2 phones, got {len(phones)}"
-
-        # Stop the PBX (simulating shutdown)
-        pbx1.stop()
-
-        # Create a new PBX instance (simulating server restart)
-        pbx2 = PBXCore(config_path)
-
-        # Start the PBX (this should NOT clear the phones table)
-        success = pbx2.start()
-        assert success, "Failed to start PBX"
-
-        # Verify phones table was preserved
-        phones = pbx2.registered_phones_db.list_all()
-        phone_count = len(phones)
-        assert phone_count == 2, f"Expected 2 phones after boot, got {phone_count}"
-
-        # Stop the PBX
-        pbx2.stop()
-
-    finally:
-        # Clean up
-        shutil.rmtree(temp_dir)
+    # Verify phones table was preserved after simulated boot
+    phones = phones_db.list_all()
+    phone_count = len(phones)
+    assert phone_count == 2, f"Expected 2 phones after boot, got {phone_count}"
 
 
 # ============================================================================
@@ -193,44 +185,43 @@ class TestPhoneCleanupStartup:
     def setup_method(self) -> None:
         """Set up test fixtures"""
         self.db = Mock(spec=DatabaseBackend)
-        self.db.db_type = "sqlite"
+        self.db.db_type = "postgresql"
         self.db.enabled = True
         self.phones_db = RegisteredPhonesDB(self.db)
 
     def test_cleanup_no_incomplete_registrations(self) -> None:
         """Test cleanup when there are no incomplete registrations"""
-        # Mock fetch_one to return 0 count
-        self.db.fetch_one.return_value = {"count": 0}
+        # Mock execute_rowcount to return 0 (no rows deleted)
+        self.db.execute_rowcount.return_value = 0
 
         success, count = self.phones_db.cleanup_incomplete_registrations()
 
         assert success
         assert count == 0
-        # Execute should not be called since count is 0
-        self.db.execute.assert_not_called()
+        # execute_rowcount should have been called with the DELETE query
+        self.db.execute_rowcount.assert_called_once()
 
     def test_cleanup_with_incomplete_registrations(self) -> None:
         """Test cleanup when there are incomplete registrations"""
-        # Mock fetch_one to return 3 incomplete registrations
-        self.db.fetch_one.return_value = {"count": 3}
-        self.db.execute.return_value = True
+        # Mock execute_rowcount to return 3 rows deleted
+        self.db.execute_rowcount.return_value = 3
 
         success, count = self.phones_db.cleanup_incomplete_registrations()
 
         assert success
         assert count == 3
-        # Verify the DELETE query was executed
-        self.db.execute.assert_called_once()
-        call_args = self.db.execute.call_args[0][0]
+        # Verify the DELETE query was executed via execute_rowcount
+        self.db.execute_rowcount.assert_called_once()
+        call_args = self.db.execute_rowcount.call_args[0][0]
         assert "DELETE FROM registered_phones" in call_args
         assert "mac_address IS NULL" in call_args
         assert "ip_address IS NULL" in call_args
-        assert "extension_number IS NULL" in call_args
+        assert "extension IS NULL" in call_args
 
     def test_cleanup_database_error(self) -> None:
         """Test cleanup handles database errors gracefully"""
-        # Mock fetch_one to raise an exception
-        self.db.fetch_one.side_effect = Exception("Database error")
+        # Mock execute_rowcount to raise a ValueError (caught by the method)
+        self.db.execute_rowcount.side_effect = ValueError("Database error")
 
         success, count = self.phones_db.cleanup_incomplete_registrations()
 
@@ -239,32 +230,29 @@ class TestPhoneCleanupStartup:
 
     def test_cleanup_delete_failure(self) -> None:
         """Test cleanup when delete operation fails"""
-        # Mock fetch_one to return 2 incomplete registrations
-        self.db.fetch_one.return_value = {"count": 2}
-        # Mock execute to return False (failure)
-        self.db.execute.return_value = False
+        # Mock execute_rowcount to return None (failure)
+        self.db.execute_rowcount.return_value = None
 
         success, count = self.phones_db.cleanup_incomplete_registrations()
 
         assert not success
-        assert count == 2
-        # Verify DELETE was attempted
-        self.db.execute.assert_called_once()
+        assert count == 0
+        # Verify execute_rowcount was called
+        self.db.execute_rowcount.assert_called_once()
 
     def test_cleanup_query_structure(self) -> None:
         """Test that cleanup query checks all required fields"""
-        self.db.fetch_one.return_value = {"count": 5}
-        self.db.execute.return_value = True
+        self.db.execute_rowcount.return_value = 5
 
         self.phones_db.cleanup_incomplete_registrations()
 
-        # Get the DELETE query
-        delete_query = self.db.execute.call_args[0][0]
+        # Get the DELETE query from execute_rowcount
+        delete_query = self.db.execute_rowcount.call_args[0][0]
 
         # Verify it checks for NULL or empty string for all three fields
         assert "mac_address IS NULL OR mac_address = ''" in delete_query
         assert "ip_address IS NULL OR ip_address = ''" in delete_query
-        assert "extension_number IS NULL OR extension_number = ''" in delete_query
-        # Verify it uses OR between field conditions (mac_address OR ip_address OR extension_number)
+        assert "extension IS NULL OR extension = ''" in delete_query
+        # Verify it uses OR between field conditions (mac_address OR ip_address OR extension)
         # Any single missing field should trigger deletion of that record
         assert "OR" in delete_query

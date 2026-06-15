@@ -91,7 +91,7 @@ class TestHubSpotGetConfig:
     @patch("pbx.features.crm_integrations.get_logger")
     def test_get_config_sqlite_error(self, mock_logger: MagicMock) -> None:
         db = _make_db()
-        db.execute.side_effect = Exception("db error")
+        db.execute.side_effect = ValueError("db error")
         integration = HubSpotIntegration(db, {})
         config = integration.get_config()
         assert config is None
@@ -174,7 +174,7 @@ class TestHubSpotUpdateConfig:
     @patch("pbx.features.crm_integrations.get_logger")
     def test_update_config_error(self, mock_logger: MagicMock) -> None:
         db = _make_db()
-        db.execute.side_effect = Exception("db error")
+        db.execute.side_effect = ValueError("db error")
         integration = HubSpotIntegration(db, {})
         result = integration.update_config({"enabled": True})
         assert result is False
@@ -570,7 +570,7 @@ class TestHubSpotLogActivity:
         integration._log_activity("hubspot", "sync_contact", "success", "details")
         db.execute.assert_called_once()
         call_args = db.execute.call_args
-        assert "?" in call_args[0][0]
+        assert "%s" in call_args[0][0]
 
     @patch("pbx.features.crm_integrations.get_logger")
     def test_log_activity_postgres(self, mock_logger: MagicMock) -> None:
@@ -663,7 +663,7 @@ class TestZendeskGetConfig:
     @patch("pbx.features.crm_integrations.get_logger")
     def test_get_config_sqlite_error(self, mock_logger: MagicMock) -> None:
         db = _make_db()
-        db.execute.side_effect = Exception("db error")
+        db.execute.side_effect = ValueError("db error")
         integration = ZendeskIntegration(db, {})
         config = integration.get_config()
         assert config is None
@@ -736,7 +736,7 @@ class TestZendeskUpdateConfig:
     @patch("pbx.features.crm_integrations.get_logger")
     def test_update_config_error(self, mock_logger: MagicMock) -> None:
         db = _make_db()
-        db.execute.side_effect = Exception("db error")
+        db.execute.side_effect = ValueError("db error")
         integration = ZendeskIntegration(db, {})
         result = integration.update_config({"enabled": True})
         assert result is False
@@ -1199,7 +1199,7 @@ class TestZendeskLogActivity:
         integration._log_activity("zendesk", "create_ticket", "success", "Ticket 123")
         db.execute.assert_called_once()
         call_args = db.execute.call_args
-        assert "?" in call_args[0][0]
+        assert "%s" in call_args[0][0]
 
     @patch("pbx.features.crm_integrations.get_logger")
     def test_log_activity_postgres(self, mock_logger: MagicMock) -> None:

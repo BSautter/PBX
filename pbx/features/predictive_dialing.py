@@ -594,7 +594,7 @@ class PredictiveDialer:
         # Integrate with PBX core to initiate the outbound call via SIP
         call_id = None
         try:
-            from pbx.core.pbx import get_pbx_core
+            from pbx.api.utils import get_pbx_core
 
             pbx_core = get_pbx_core()
             if pbx_core and hasattr(pbx_core, "call_manager"):

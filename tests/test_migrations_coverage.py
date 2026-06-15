@@ -72,10 +72,10 @@ class TestBuildMigrationSQL:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_sqlite_serial(self, mock_get_logger: MagicMock) -> None:
-        """{SERIAL} should expand to 'INTEGER PRIMARY KEY AUTOINCREMENT' for SQLite."""
+        """{SERIAL} should expand to 'SERIAL PRIMARY KEY' (PostgreSQL-only)."""
         mgr = MigrationManager(_make_db_backend("sqlite"))
         result = mgr._build_migration_sql("id {SERIAL}")
-        assert "INTEGER PRIMARY KEY AUTOINCREMENT" in result
+        assert "SERIAL PRIMARY KEY" in result
 
     @patch("pbx.utils.migrations.get_logger")
     def test_postgresql_boolean_true(self, mock_get_logger: MagicMock) -> None:
@@ -86,10 +86,10 @@ class TestBuildMigrationSQL:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_sqlite_boolean_true(self, mock_get_logger: MagicMock) -> None:
-        """{BOOLEAN_TRUE} should expand to '1' for SQLite."""
+        """{BOOLEAN_TRUE} should expand to 'TRUE' (PostgreSQL-only)."""
         mgr = MigrationManager(_make_db_backend("sqlite"))
         result = mgr._build_migration_sql("DEFAULT {BOOLEAN_TRUE}")
-        assert "DEFAULT 1" in result
+        assert "DEFAULT TRUE" in result
 
     @patch("pbx.utils.migrations.get_logger")
     def test_postgresql_boolean_false(self, mock_get_logger: MagicMock) -> None:
@@ -100,10 +100,10 @@ class TestBuildMigrationSQL:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_sqlite_boolean_false(self, mock_get_logger: MagicMock) -> None:
-        """{BOOLEAN_FALSE} should expand to '0' for SQLite."""
+        """{BOOLEAN_FALSE} should expand to 'FALSE' (PostgreSQL-only)."""
         mgr = MigrationManager(_make_db_backend("sqlite"))
         result = mgr._build_migration_sql("DEFAULT {BOOLEAN_FALSE}")
-        assert "DEFAULT 0" in result
+        assert "DEFAULT FALSE" in result
 
     @patch("pbx.utils.migrations.get_logger")
     def test_postgresql_bytea(self, mock_get_logger: MagicMock) -> None:
@@ -114,10 +114,10 @@ class TestBuildMigrationSQL:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_sqlite_bytea(self, mock_get_logger: MagicMock) -> None:
-        """{BYTEA} should expand to 'BLOB' for SQLite."""
+        """{BYTEA} should expand to 'BYTEA' (PostgreSQL-only)."""
         mgr = MigrationManager(_make_db_backend("sqlite"))
         result = mgr._build_migration_sql("col {BYTEA}")
-        assert "col BLOB" in result
+        assert "col BYTEA" in result
 
     @patch("pbx.utils.migrations.get_logger")
     def test_text_placeholder(self, mock_get_logger: MagicMock) -> None:
@@ -207,14 +207,15 @@ class TestInitMigrationsTable:
         assert "VARCHAR(255)" in sql_arg
 
     @patch("pbx.utils.migrations.get_logger")
-    def test_sqlite_uses_text(self, mock_get_logger: MagicMock) -> None:
-        """SQLite SQL should use TEXT."""
+    def test_sqlite_uses_varchar(self, mock_get_logger: MagicMock) -> None:
+        """SQL should use VARCHAR(255) and TIMESTAMP (PostgreSQL-only)."""
         db = _make_db_backend("sqlite")
         mgr = MigrationManager(db)
         result = mgr.init_migrations_table()
         assert result is True
         sql_arg = db.execute.call_args[0][0]
-        assert "TEXT" in sql_arg
+        assert "VARCHAR(255)" in sql_arg
+        assert "TIMESTAMP" in sql_arg
 
     @patch("pbx.utils.migrations.get_logger")
     def test_returns_true_on_success(self, mock_get_logger: MagicMock) -> None:
@@ -290,9 +291,9 @@ class TestGetCurrentVersion:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_returns_zero_on_sqlite_error(self, mock_get_logger: MagicMock) -> None:
-        """Must return 0 on Exception."""
+        """Must return 0 on ValueError."""
         db = _make_db_backend()
-        db.fetch_one.side_effect = Exception("no such table")
+        db.fetch_one.side_effect = ValueError("no such table")
         mgr = MigrationManager(db)
         assert mgr.get_current_version() == 0
 
@@ -316,7 +317,7 @@ class TestGetCurrentVersion:
     def test_logs_warning_on_error(self, mock_get_logger: MagicMock) -> None:
         """Must log a warning when version cannot be fetched."""
         db = _make_db_backend()
-        db.fetch_one.side_effect = Exception("oops")
+        db.fetch_one.side_effect = ValueError("oops")
         mgr = MigrationManager(db)
         mgr.get_current_version()
         mgr.logger.warning.assert_called_once()
@@ -353,7 +354,7 @@ class TestApplyMigrations:
 
     @patch("pbx.utils.migrations.get_logger")
     def test_records_migration_version_sqlite(self, mock_get_logger: MagicMock) -> None:
-        """Must INSERT migration record with ? placeholders for SQLite."""
+        """Must INSERT migration record with %s placeholders (PostgreSQL-only)."""
         db = _make_db_backend("sqlite")
         db.fetch_one.return_value = {"max_version": 0}
         mgr = MigrationManager(db)
@@ -362,7 +363,7 @@ class TestApplyMigrations:
         # The second execute call records the migration (first is init_migrations_table)
         record_call = db.execute.call_args_list[-1]
         sql_arg = record_call[0][0]
-        assert "?" in sql_arg
+        assert "%s" in sql_arg
         assert record_call[0][1] == (1, "first")
 
     @patch("pbx.utils.migrations.get_logger")
@@ -428,7 +429,7 @@ class TestApplyMigrations:
         """Must return False when migration execution raises an error."""
         db = _make_db_backend("sqlite")
         db.fetch_one.return_value = {"max_version": 0}
-        db.execute_script.side_effect = Exception("syntax error")
+        db.execute_script.side_effect = ValueError("syntax error")
         mgr = MigrationManager(db)
         mgr.register_migration(1, "bad", "INVALID SQL")
         assert mgr.apply_migrations() is False
@@ -438,7 +439,7 @@ class TestApplyMigrations:
         """Must log error when migration fails."""
         db = _make_db_backend("sqlite")
         db.fetch_one.return_value = {"max_version": 0}
-        db.execute_script.side_effect = Exception("fail")
+        db.execute_script.side_effect = ValueError("fail")
         mgr = MigrationManager(db)
         mgr.register_migration(1, "bad", "INVALID SQL")
         mgr.apply_migrations()
@@ -561,7 +562,7 @@ class TestGetMigrationStatus:
         """Must return empty list on error from fetch_all."""
         db = _make_db_backend()
         db.fetch_one.return_value = {"max_version": 0}
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         mgr = MigrationManager(db)
         mgr.register_migration(1, "one", "SQL1")
         status = mgr.get_migration_status()
@@ -572,7 +573,7 @@ class TestGetMigrationStatus:
         """Must log error when status retrieval fails."""
         db = _make_db_backend()
         db.fetch_one.return_value = {"max_version": 0}
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         mgr = MigrationManager(db)
         mgr.register_migration(1, "one", "SQL1")
         mgr.get_migration_status()
@@ -694,14 +695,14 @@ class TestRegisterAllMigrations:
                 )
 
     @patch("pbx.utils.migrations.get_logger")
-    def test_sqlite_uses_autoincrement(self, mock_get_logger: MagicMock) -> None:
-        """SQLite migrations must use AUTOINCREMENT for primary keys."""
+    def test_sqlite_uses_serial(self, mock_get_logger: MagicMock) -> None:
+        """Migrations must use SERIAL PRIMARY KEY (PostgreSQL-only)."""
         db = _make_db_backend("sqlite")
         mgr = MigrationManager(db)
         register_all_migrations(mgr)
         for migration in mgr.migrations:
             if "CREATE TABLE" in migration["sql"]:
-                assert "AUTOINCREMENT" in migration["sql"]
+                assert "SERIAL PRIMARY KEY" in migration["sql"]
 
     @patch("pbx.utils.migrations.get_logger")
     def test_postgresql_uses_serial(self, mock_get_logger: MagicMock) -> None:

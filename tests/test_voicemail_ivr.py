@@ -13,6 +13,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from pbx.features.voicemail import VoicemailIVR, VoicemailSystem
 from pbx.utils.audio import generate_voice_prompt
 from pbx.utils.config import Config
@@ -412,6 +414,13 @@ def test_debug_pin_logging_suppressed_when_disabled() -> None:
         log_capture = io.StringIO()
         handler = logging.StreamHandler(log_capture)
         handler.setLevel(logging.INFO)
+        # Reset capture state so prior tests can't suppress these records
+        # (disabled is set by dictConfig/fileConfig disable_existing_loggers).
+        ivr.logger.handlers.clear()
+        ivr.logger.filters.clear()
+        ivr.logger.disabled = False
+        ivr.logger.setLevel(logging.DEBUG)
+        ivr.logger.propagate = False
         ivr.logger.addHandler(handler)
 
         # Enter PIN digits
@@ -475,6 +484,13 @@ def test_debug_pin_logging_emitted_when_enabled() -> None:
 
         # We need to get the VM_IVR logger to capture init warnings
         temp_logger = logging.getLogger("PBX.VM_IVR")
+        # Reset capture state so prior tests can't suppress these records
+        # (disabled is set by dictConfig/fileConfig disable_existing_loggers).
+        temp_logger.handlers.clear()
+        temp_logger.filters.clear()
+        temp_logger.disabled = False
+        temp_logger.setLevel(logging.DEBUG)
+        temp_logger.propagate = False
         temp_logger.addHandler(handler)
 
         ivr = voicemail.VoicemailIVR(vm_system, "1001")
@@ -568,7 +584,8 @@ def test_voicemail_pin_from_database() -> None:
 
         # Initialize database
         db = DatabaseBackend(config)
-        assert db.connect() is True
+        if not db.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
         assert db.create_tables() is True
 
         # Add extension with voicemail PIN to database

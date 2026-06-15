@@ -17,15 +17,16 @@ def test_voicemail_access_contact_header_code_review() -> None:
     (without asterisk) instead of to_ext (with asterisk) in the Contact header.
     """
 
-    # Read the source code
-    pbx_file = str(Path(__file__).parent.parent / "pbx" / "core" / "pbx.py")
+    # Read the source code. The voicemail-access logic lives in the dedicated
+    # handler; pbx.py delegates to it.
+    handler_file = str(Path(__file__).parent.parent / "pbx" / "core" / "voicemail_handler.py")
 
-    with open(pbx_file) as f:
+    with open(handler_file) as f:
         content = f.read()
 
-    # Find the _handle_voicemail_access method
-    start_idx = content.find("def _handle_voicemail_access(")
-    assert start_idx != -1, "Could not find _handle_voicemail_access method"
+    # Find the handle_voicemail_access method
+    start_idx = content.find("def handle_voicemail_access(")
+    assert start_idx != -1, "Could not find handle_voicemail_access method"
 
     # Get the method content (simplified check)
     method_end = content.find("\n    def ", start_idx + 1)
@@ -34,7 +35,7 @@ def test_voicemail_access_contact_header_code_review() -> None:
     method_content = content[start_idx:method_end]
 
     # Find where target_ext is defined (removing asterisk)
-    assert "target_ext = to_ext[1:]" in method_content, (
+    assert "to_ext[1:]" in method_content, (
         "Should define target_ext by removing asterisk from to_ext"
     )
 

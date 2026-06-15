@@ -1178,7 +1178,7 @@ class TestMFAManagerIsEnabledForUser:
         db = MagicMock()
         db.enabled = True
         db.db_type = "sqlite"
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         m = self._make_manager(enabled=True, db=db)
         assert m.is_enabled_for_user("1001") is False
 
@@ -1456,7 +1456,7 @@ class TestMFAManagerEnrollFido2:
         db = MagicMock()
         db.enabled = True
         db.db_type = "sqlite"
-        db.execute.side_effect = Exception("fail")
+        db.execute.side_effect = ValueError("fail")
         m = self._make_manager(db=db, fido2=True)
         m.fido2_verifier = MagicMock()
         m.fido2_verifier.register_credential.return_value = (True, "cred_id_123")
@@ -1562,7 +1562,7 @@ class TestMFAManagerGetEnrolledMethods:
         db = MagicMock()
         db.enabled = True
         db.db_type = "sqlite"
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         m = self._make_manager(db=db)
         methods = m.get_enrolled_methods("1001")
         assert methods["totp"] is False
@@ -1730,7 +1730,7 @@ class TestMFAManagerPrivateMethods:
         db = MagicMock()
         db.enabled = True
         db.db_type = "sqlite"
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         m = self._make_manager(db=db)
         assert m._get_secret("1001") is None
 
@@ -1864,7 +1864,7 @@ class TestMFAManagerPrivateMethods:
         db = MagicMock()
         db.enabled = True
         db.db_type = "sqlite"
-        db.fetch_all.side_effect = Exception("fail")
+        db.fetch_all.side_effect = ValueError("fail")
         m = self._make_manager(db=db)
         assert m._verify_backup_code("1001", "ABCD-EFGH") is False
 

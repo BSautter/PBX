@@ -223,11 +223,12 @@ class TestSIPMessageGetHeader:
         msg = SIPMessage()
         assert msg.get_header("X-Custom") is None
 
-    def test_get_header_case_sensitive(self) -> None:
+    def test_get_header_case_insensitive(self) -> None:
         msg = SIPMessage()
         msg.headers["Call-ID"] = "abc123"
         assert msg.get_header("Call-ID") == "abc123"
-        assert msg.get_header("call-id") is None
+        # SIP header names are case-insensitive (RFC 3261 Section 7.3.1)
+        assert msg.get_header("call-id") == "abc123"
 
 
 @pytest.mark.unit

@@ -3,6 +3,7 @@
 import base64
 import json
 import time
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -396,6 +397,8 @@ class TestSTIRSHAKENManagerVerifyPassport:
         mock_pub_key = MagicMock()
         mock_pub_key.verify.return_value = None  # No exception = success
         mock_cert.public_key.return_value = mock_pub_key
+        mock_cert.not_valid_before_utc = datetime(2020, 1, 1, tzinfo=UTC)
+        mock_cert.not_valid_after_utc = datetime(2030, 1, 1, tzinfo=UTC)
         manager.certificate = mock_cert
 
         header = (
@@ -422,6 +425,8 @@ class TestSTIRSHAKENManagerVerifyPassport:
         mock_pub_key = MagicMock()
         mock_pub_key.verify.return_value = None
         mock_cert.public_key.return_value = mock_pub_key
+        mock_cert.not_valid_before_utc = datetime(2020, 1, 1, tzinfo=UTC)
+        mock_cert.not_valid_after_utc = datetime(2030, 1, 1, tzinfo=UTC)
         manager.certificate = mock_cert
 
         header = (
@@ -447,6 +452,8 @@ class TestSTIRSHAKENManagerVerifyPassport:
         mock_pub_key = MagicMock()
         mock_pub_key.verify.side_effect = ValueError("Bad signature")
         mock_cert.public_key.return_value = mock_pub_key
+        mock_cert.not_valid_before_utc = datetime(2020, 1, 1, tzinfo=UTC)
+        mock_cert.not_valid_after_utc = datetime(2030, 1, 1, tzinfo=UTC)
         manager.certificate = mock_cert
 
         header = (
@@ -520,9 +527,9 @@ class TestSTIRSHAKENManagerIdentityHeader:
     @patch("pbx.features.stir_shaken.CRYPTO_AVAILABLE", True)
     def test_parse_identity_header_error(self) -> None:
         manager = STIRSHAKENManager()
-        # Force an exception via patching
+        # Force a caught TypeError by passing an int instead of a string
         with patch.object(manager, "logger"):
-            result = manager.parse_identity_header(None)
+            result = manager.parse_identity_header(b"invalid")
             assert result is None
 
     @patch("pbx.features.stir_shaken.CRYPTO_AVAILABLE", True)
@@ -675,7 +682,8 @@ class TestSTIRSHAKENManagerHelpers:
     @patch("pbx.features.stir_shaken.CRYPTO_AVAILABLE", True)
     def test_get_certificate_url_default(self) -> None:
         manager = STIRSHAKENManager()
-        assert manager._get_certificate_url() == "https://cert.example.com/cert.pem"
+        # No certificate_url or certificate_path configured; returns empty string
+        assert manager._get_certificate_url() == ""
 
     @patch("pbx.features.stir_shaken.CRYPTO_AVAILABLE", True)
     def test_get_certificate_url_from_config(self) -> None:

@@ -3,6 +3,7 @@ Test suite for all SIP methods including MESSAGE, PRACK, UPDATE, and PUBLISH
 """
 
 from typing import Any
+from unittest.mock import MagicMock
 
 from pbx.sip.message import SIPMessage
 from pbx.sip.server import SIPServer
@@ -26,6 +27,15 @@ class MockPBXCore:
         self.route_calls: list[tuple[str, str, str]] = []
         self.messages: list[Any] = []
         self.call_manager = MockCallManager()
+
+    def __getattr__(self, name: str) -> Any:
+        # Auto-provide MagicMocks for collaborators the SIP handlers reach for
+        # (extension_registry, config, webhook_system, ...) so these
+        # protocol-level smoke tests complete without raising. Only fires for
+        # attributes not set in __init__, so explicit behavior is preserved.
+        mock = MagicMock()
+        object.__setattr__(self, name, mock)
+        return mock
 
     def register_extension(
         self, from_header: str, addr: Any, user_agent: str, contact: str

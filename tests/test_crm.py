@@ -373,11 +373,12 @@ class TestHubSpotIntegration:
 
         class MockDB:
             def __init__(self) -> None:
-                self.db_type = "sqlite"
+                self.db_type = "postgresql"
                 self.conn = sqlite3.connect(":memory:")
                 self.enabled = True
 
             def execute(self, query: str, params: Any = None) -> list[Any]:
+                query = query.replace("%s", "?")
                 cursor = self.conn.cursor()
                 if params:
                     cursor.execute(query, params)
@@ -401,6 +402,7 @@ class TestHubSpotIntegration:
                 sync_contacts INTEGER DEFAULT 0,
                 sync_deals INTEGER DEFAULT 0,
                 auto_create_contacts INTEGER DEFAULT 0,
+                last_sync TIMESTAMP,
                 webhook_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -477,11 +479,12 @@ class TestZendeskIntegration:
 
         class MockDB:
             def __init__(self) -> None:
-                self.db_type = "sqlite"
+                self.db_type = "postgresql"
                 self.conn = sqlite3.connect(":memory:")
                 self.enabled = True
 
             def execute(self, query: str, params: Any = None) -> list[Any]:
+                query = query.replace("%s", "?")
                 cursor = self.conn.cursor()
                 if params:
                     cursor.execute(query, params)

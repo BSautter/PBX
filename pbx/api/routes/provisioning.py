@@ -34,8 +34,10 @@ logger = get_logger()
 
 provisioning_bp = Blueprint("provisioning", __name__)
 
-# MAC address placeholders that indicate misconfiguration
-MAC_ADDRESS_PLACEHOLDERS = ["{mac}", "{MAC}", "{Ma}", "$mac", "$MAC"]
+# Literal templating placeholders that indicate the PBX failed to substitute a
+# MAC address. Phone-side variables like $mac / $MA are NOT placeholders — phones
+# substitute those themselves, so they must not be flagged as misconfiguration.
+MAC_ADDRESS_PLACEHOLDERS = ["{mac}", "{MAC}", "{Ma}"]
 
 # Known common/model config filenames requested by Yealink-based phones (including Zultys)
 # during their boot provisioning sequence. These are fleet-wide config files, not per-device.

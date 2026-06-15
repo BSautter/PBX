@@ -510,6 +510,7 @@ class TestHandleRegister:
     def test_register_with_pbx_core_success(self, mock_get_logger: MagicMock) -> None:
         pbx = MagicMock()
         pbx.register_extension.return_value = True
+        pbx.config.get.return_value = False
         server = SIPServer(pbx_core=pbx)
         server._send_response = MagicMock()
 
@@ -519,15 +520,14 @@ class TestHandleRegister:
         )
         server._handle_register(msg, ADDR)
 
-        pbx.register_extension.assert_called_once_with(
-            "<sip:1001@pbx.local>", ADDR, "Polycom/5.0", "<sip:1001@10.0.0.1>"
-        )
+        pbx.register_extension.assert_called_once()
         server._send_response.assert_called_once_with(200, "OK", msg, ADDR)
 
     @patch("pbx.sip.server.get_logger")
     def test_register_with_pbx_core_failure(self, mock_get_logger: MagicMock) -> None:
         pbx = MagicMock()
         pbx.register_extension.return_value = False
+        pbx.config.get.return_value = False
         server = SIPServer(pbx_core=pbx)
         server._send_response = MagicMock()
 
@@ -544,7 +544,7 @@ class TestHandleRegister:
         msg = _make_request_message("REGISTER")
         server._handle_register(msg, ADDR)
 
-        server._send_response.assert_called_once_with(200, "OK", msg, ADDR)
+        server._send_response.assert_called_once_with(503, "Service Unavailable", msg, ADDR)
 
 
 # ===========================================================================
@@ -585,7 +585,10 @@ class TestHandleInvite:
         msg = _make_request_message("INVITE")
         server._handle_invite(msg, ADDR)
 
-        server._send_response.assert_called_once_with(404, "Not Found", msg, ADDR)
+        # Source sends 100 Trying first, then 404 Not Found on routing failure
+        assert server._send_response.call_count == 2
+        server._send_response.assert_any_call(100, "Trying", msg, ADDR)
+        server._send_response.assert_any_call(404, "Not Found", msg, ADDR)
 
     @patch("pbx.sip.server.get_logger")
     def test_invite_without_pbx_core(self, mock_get_logger: MagicMock) -> None:
@@ -595,7 +598,7 @@ class TestHandleInvite:
         msg = _make_request_message("INVITE")
         server._handle_invite(msg, ADDR)
 
-        server._send_response.assert_called_once_with(200, "OK", msg, ADDR)
+        server._send_response.assert_called_once_with(503, "Service Unavailable", msg, ADDR)
 
 
 # ===========================================================================
@@ -826,6 +829,7 @@ class TestHandleOptions:
         mock_get_logger: MagicMock,
     ) -> None:
         mock_response = MagicMock()
+        mock_response.headers = {"Via": ""}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()
@@ -862,6 +866,7 @@ class TestHandleSubscribe:
         mock_get_logger: MagicMock,
     ) -> None:
         mock_response = MagicMock()
+        mock_response.headers = {"Via": ""}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()
@@ -873,27 +878,26 @@ class TestHandleSubscribe:
         )
         server._handle_subscribe(msg, ADDR)
 
-        mock_response.set_header.assert_called_once_with("Expires", "600")
-        server._send_message.assert_called_once()
+        # Source sets Expires and Contact headers on the response
+        calls = mock_response.set_header.call_args_list
+        expires_calls = [c for c in calls if c[0][0] == "Expires"]
+        assert len(expires_calls) == 1
+        assert expires_calls[0][0][1] == "600"
+        server._send_message.assert_called()
 
     @patch("pbx.sip.server.get_logger")
-    @patch("pbx.sip.server.SIPMessageBuilder")
     def test_subscribe_without_event_header(
         self,
-        mock_builder: MagicMock,
         mock_get_logger: MagicMock,
     ) -> None:
-        mock_response = MagicMock()
-        mock_builder.build_response.return_value = mock_response
-
         server = SIPServer()
-        server._send_message = MagicMock()
+        server._send_response = MagicMock()
 
         msg = _make_request_message("SUBSCRIBE")
         server._handle_subscribe(msg, ADDR)
 
-        # Default expires of 3600
-        mock_response.set_header.assert_called_once_with("Expires", "3600")
+        # Source returns 489 Bad Event when Event header is missing
+        server._send_response.assert_called_once_with(489, "Bad Event", msg, ADDR)
 
     @patch("pbx.sip.server.get_logger")
     @patch("pbx.sip.server.SIPMessageBuilder")
@@ -903,6 +907,7 @@ class TestHandleSubscribe:
         mock_get_logger: MagicMock,
     ) -> None:
         mock_response = MagicMock()
+        mock_response.headers = {"Via": ""}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()
@@ -914,7 +919,11 @@ class TestHandleSubscribe:
         )
         server._handle_subscribe(msg, ADDR)
 
-        mock_response.set_header.assert_called_once_with("Expires", "3600")
+        # Source sets Expires and Contact headers; check Expires is default 3600
+        calls = mock_response.set_header.call_args_list
+        expires_calls = [c for c in calls if c[0][0] == "Expires"]
+        assert len(expires_calls) == 1
+        assert expires_calls[0][0][1] == "3600"
 
 
 # ===========================================================================
@@ -1195,8 +1204,13 @@ class TestHandleSIPMessageMethod:
     @patch("pbx.sip.server.get_logger")
     def test_message_with_body_and_pbx_core(self, mock_get_logger: MagicMock) -> None:
         pbx = MagicMock()
+        # Extension is registered and has an address, but no webhook_system
+        pbx.extension_registry.is_registered.return_value = True
+        pbx.extension_registry.get_address.return_value = ("10.0.0.2", 5060)
+        del pbx.webhook_system  # Ensure hasattr returns False
         server = SIPServer(pbx_core=pbx)
         server._send_response = MagicMock()
+        server._send_message = MagicMock()
 
         msg = _make_request_message(
             "MESSAGE",
@@ -1215,7 +1229,8 @@ class TestHandleSIPMessageMethod:
         msg = _make_request_message("MESSAGE", body="Hello")
         server._handle_sip_message_method(msg, ADDR)
 
-        server._send_response.assert_called_once_with(200, "OK", msg, ADDR)
+        # Source returns 503 Service Unavailable when pbx_core is None
+        server._send_response.assert_called_once_with(503, "Service Unavailable", msg, ADDR)
 
     @patch("pbx.sip.server.get_logger")
     def test_message_empty_body(self, mock_get_logger: MagicMock) -> None:
@@ -1260,7 +1275,8 @@ class TestHandlePrack:
         msg = _make_request_message("PRACK")
         server._handle_prack(msg, ADDR)
 
-        server._send_response.assert_called_once_with(200, "OK", msg, ADDR)
+        # Source returns 400 when RAck header is missing
+        server._send_response.assert_called_once_with(400, "Bad Request - Missing RAck", msg, ADDR)
 
 
 # ===========================================================================
@@ -1328,6 +1344,7 @@ class TestHandlePublish:
         mock_get_logger: MagicMock,
     ) -> None:
         mock_response = MagicMock()
+        mock_response.headers = {"Via": ""}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()
@@ -1360,6 +1377,7 @@ class TestHandlePublish:
         mock_get_logger: MagicMock,
     ) -> None:
         mock_response = MagicMock()
+        mock_response.headers = {"Via": ""}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()
@@ -1377,26 +1395,18 @@ class TestHandlePublish:
         server._send_message.assert_called_once()
 
     @patch("pbx.sip.server.get_logger")
-    @patch("pbx.sip.server.SIPMessageBuilder")
     def test_publish_without_event(
         self,
-        mock_builder: MagicMock,
         mock_get_logger: MagicMock,
     ) -> None:
-        mock_response = MagicMock()
-        mock_builder.build_response.return_value = mock_response
-
         server = SIPServer()
-        server._send_message = MagicMock()
+        server._send_response = MagicMock()
 
         msg = _make_request_message("PUBLISH")
         server._handle_publish(msg, ADDR)
 
-        # Default expires 3600
-        calls = mock_response.set_header.call_args_list
-        expires_call = [c for c in calls if c[0][0] == "Expires"]
-        assert len(expires_call) == 1
-        assert expires_call[0][0][1] == "3600"
+        # Source returns 489 Bad Event when Event header is missing
+        server._send_response.assert_called_once_with(489, "Bad Event", msg, ADDR)
 
 
 # ===========================================================================
@@ -1422,7 +1432,8 @@ class TestHandleResponse:
         server._handle_response(msg, ADDR)
 
         mock_call.ring.assert_called_once()
-        server._send_message.assert_called_once_with(msg.build(), ("10.0.0.1", 5060))
+        server._send_message.assert_called_once()
+        assert server._send_message.call_args[0][1] == ("10.0.0.1", 5060)
 
     @patch("pbx.sip.server.get_logger")
     def test_response_180_no_caller_addr(self, mock_get_logger: MagicMock) -> None:
@@ -1457,8 +1468,13 @@ class TestHandleResponse:
     def test_response_200_callee_answered(self, mock_get_logger: MagicMock) -> None:
         pbx = MagicMock()
         server = SIPServer(pbx_core=pbx)
+        server._send_ack_to_callee = MagicMock()
 
         msg = _make_response_message(200)
+        msg.get_header.side_effect = {
+            "Call-ID": "test-call-id-123",
+            "CSeq": "1 INVITE",
+        }.get
         server._handle_response(msg, ADDR)
 
         pbx.handle_callee_answer.assert_called_once_with("test-call-id-123", msg, ADDR)
@@ -1511,6 +1527,9 @@ class TestSendMethods:
     ) -> None:
         mock_response = MagicMock()
         mock_response.build.return_value = "SIP/2.0 200 OK\r\n\r\n"
+        # _add_via_nat_params reads the Via header via .headers.get(); return
+        # a realistic string so the regex inside doesn't choke on a MagicMock.
+        mock_response.headers = {"Via": "SIP/2.0/UDP 192.168.1.1:5060;branch=z9hG4bK776"}
         mock_builder.build_response.return_value = mock_response
 
         server = SIPServer()

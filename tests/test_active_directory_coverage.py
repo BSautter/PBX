@@ -34,6 +34,24 @@ from pbx.integrations.active_directory import ActiveDirectoryIntegration
 MOD = "pbx.integrations.active_directory"
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _cleanup_ldap3_pollution():
+    """Undo the module-level ldap3 mock after this module's tests.
+
+    ldap3 is not installed, so the setdefault() mocks above persist for the
+    whole session and leave the AD module believing LDAP3_AVAILABLE is True
+    with a MagicMock Connection. A later full PBXCore init would then drive AD
+    with that mock and raise InvalidSpecError. Restore the natural
+    "ldap3 unavailable" state so subsequent test modules are unaffected.
+    """
+    yield
+    import pbx.integrations.active_directory as ad_mod
+
+    ad_mod.LDAP3_AVAILABLE = False
+    for name in ("ldap3", "ldap3.utils", "ldap3.utils.conv", "ldap3.core", "ldap3.core.exceptions"):
+        sys.modules.pop(name, None)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

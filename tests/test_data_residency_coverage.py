@@ -248,8 +248,9 @@ class TestTransferDataBetweenRegions:
         # No user_region => strict mode doesn't apply, GDPR doesn't apply
         # So transfers should succeed unless validation fails
 
+    @patch("pathlib.Path.mkdir")
     @patch("pbx.features.data_residency_controls.get_logger")
-    def test_transfer_success_with_db(self, mock_logger: MagicMock) -> None:
+    def test_transfer_success_with_db(self, mock_logger: MagicMock, _mock_mkdir: MagicMock) -> None:
         drc = DataResidencyControls()
         mock_db = MagicMock()
         mock_db.enabled = True
@@ -283,8 +284,11 @@ class TestTransferDataBetweenRegions:
             result = drc.transfer_data_between_regions("data-1", "cdr", "us-east", "us-west")
             assert result["success"] is False
 
+    @patch("pathlib.Path.mkdir")
     @patch("pbx.features.data_residency_controls.get_logger")
-    def test_transfer_appends_to_history(self, mock_logger: MagicMock) -> None:
+    def test_transfer_appends_to_history(
+        self, mock_logger: MagicMock, _mock_mkdir: MagicMock
+    ) -> None:
         drc = DataResidencyControls()
         mock_db = MagicMock()
         mock_db.enabled = True
@@ -309,8 +313,9 @@ class TestGetComplianceReport:
         assert report["summary"]["total_operations"] == 0
         assert report["transfers"] == []
 
+    @patch("pathlib.Path.mkdir")
     @patch("pbx.features.data_residency_controls.get_logger")
-    def test_report_with_transfers(self, mock_logger: MagicMock) -> None:
+    def test_report_with_transfers(self, mock_logger: MagicMock, _mock_mkdir: MagicMock) -> None:
         drc = DataResidencyControls()
         mock_db = MagicMock()
         mock_db.enabled = True
@@ -324,8 +329,9 @@ class TestGetComplianceReport:
         assert len(report["by_region"]) > 0
         assert "cdr" in report["by_category"]
 
+    @patch("pathlib.Path.mkdir")
     @patch("pbx.features.data_residency_controls.get_logger")
-    def test_report_date_filtering(self, mock_logger: MagicMock) -> None:
+    def test_report_date_filtering(self, mock_logger: MagicMock, _mock_mkdir: MagicMock) -> None:
         drc = DataResidencyControls()
         mock_db = MagicMock()
         mock_db.enabled = True

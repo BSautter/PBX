@@ -101,7 +101,9 @@ class OpusCodec:
             self.opuslib = opuslib
             self.opus_available = True
             self.logger.info("Opus codec library available")
-        except ImportError:
+        except (ImportError, SyntaxError):
+            # ImportError: opuslib not installed.
+            # SyntaxError: opuslib uses "is not 0" which is invalid on Python 3.14+.
             self.logger.warning("opuslib not available. Install with: pip install opuslib")
             self.logger.info("Opus codec support will be limited to SDP negotiation only")
 

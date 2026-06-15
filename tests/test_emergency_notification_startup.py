@@ -7,11 +7,14 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from pbx.features.emergency_notification import EmergencyNotificationSystem
 from pbx.utils.config import Config
 from pbx.utils.database import DatabaseBackend
 
 
+@pytest.mark.integration
 def test_emergency_notification_system_initialization() -> None:
     """Test that emergency notification system initializes without database errors"""
 
@@ -34,7 +37,8 @@ def test_emergency_notification_system_initialization() -> None:
 
         # Initialize database
         db = DatabaseBackend(test_config)
-        assert db.connect() is True, "Failed to connect to database"
+        if not db.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
         assert db.create_tables() is True, "Failed to create tables"
 
         # Mock PBX core (minimal for this test)
@@ -65,6 +69,7 @@ def test_emergency_notification_system_initialization() -> None:
             shutil.rmtree(temp_dir)
 
 
+@pytest.mark.integration
 def test_emergency_notification_database_operations() -> None:
     """Test that emergency notification system can perform database operations"""
 
@@ -87,7 +92,8 @@ def test_emergency_notification_database_operations() -> None:
 
         # Initialize database
         db = DatabaseBackend(test_config)
-        assert db.connect() is True, "Failed to connect to database"
+        if not db.connect():
+            pytest.skip("Database not available (DatabaseBackend requires PostgreSQL)")
         assert db.create_tables() is True, "Failed to create tables"
 
         # Mock PBX core

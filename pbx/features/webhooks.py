@@ -38,6 +38,8 @@ class WebhookEvent:
     EXTENSION_REGISTERED = "extension.registered"
     EXTENSION_UNREGISTERED = "extension.unregistered"
 
+    MESSAGE_RECEIVED = "message.received"
+
     QUEUE_CALL_ADDED = "queue.call_added"
     QUEUE_CALL_ANSWERED = "queue.call_answered"
     QUEUE_CALL_ABANDONED = "queue.call_abandoned"

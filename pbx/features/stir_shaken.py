@@ -17,6 +17,7 @@ from typing import Any
 
 try:
     from cryptography import x509
+    from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -309,6 +310,8 @@ class STIRSHAKENManager:
                 self.logger.debug(f"Verified PASSporT: {payload}")
                 return True, payload, "Signature valid"
 
+            except InvalidSignature:
+                return False, payload, "Signature invalid"
             except (KeyError, TypeError, ValueError) as e:
                 return False, payload, f"Signature verification failed: {e}"
 

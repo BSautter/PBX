@@ -340,6 +340,7 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
 
@@ -356,6 +357,13 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import BiometricStatus, VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(
+            side_effect=[
+                {"energy": 0.5, "mfcc_mean": 0.1},
+                {"energy": 0.6, "mfcc_mean": 0.2},
+                {"energy": 0.7, "mfcc_mean": 0.3},
+            ]
+        )
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
 
@@ -374,6 +382,7 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
 
@@ -388,6 +397,7 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.db = MagicMock()
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
@@ -402,6 +412,13 @@ class TestAddEnrollmentSample:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(
+            side_effect=[
+                {"energy": 0.5, "mfcc_mean": 0.1},
+                {"energy": 0.6, "mfcc_mean": 0.2},
+                {"energy": 0.7, "mfcc_mean": 0.3},
+            ]
+        )
         vb.db = MagicMock()
         vb.create_profile("user1", "1001")
         vb.start_enrollment("user1")
@@ -485,6 +502,7 @@ class TestVerifySpeaker:
         from pbx.features.voice_biometrics import BiometricStatus, VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.create_profile("user1", "1001")
         vb.profiles["user1"].status = BiometricStatus.ENROLLED
 
@@ -509,6 +527,7 @@ class TestVerifySpeaker:
         mock_random.uniform.return_value = 0.95
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.create_profile("user1", "1001")
         vb.profiles["user1"].status = BiometricStatus.ENROLLED
         # Empty voiceprint_features triggers random fallback
@@ -531,6 +550,7 @@ class TestVerifySpeaker:
         mock_random.uniform.return_value = 0.50
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.create_profile("user1", "1001")
         vb.profiles["user1"].status = BiometricStatus.ENROLLED
 
@@ -546,6 +566,7 @@ class TestVerifySpeaker:
         from pbx.features.voice_biometrics import BiometricStatus, VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
         vb.db = MagicMock()
         vb.create_profile("user1", "1001")
         vb.profiles["user1"].status = BiometricStatus.ENROLLED
@@ -595,6 +616,7 @@ class TestDetectFraud:
         from pbx.features.voice_biometrics import VoiceBiometrics
 
         vb = VoiceBiometrics()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5, "mfcc_mean": 0.1})
 
         # Create normal-looking audio
         audio = b""
@@ -813,6 +835,7 @@ class TestDetectFraud:
 
         vb = VoiceBiometrics()
         vb.db = MagicMock()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5})
 
         caller_info = {"call_id": "call-123", "caller_id": "5551234"}
         vb.detect_fraud(b"\x00" * 200, caller_info)
@@ -828,6 +851,7 @@ class TestDetectFraud:
 
         vb = VoiceBiometrics()
         vb.db = MagicMock()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5})
 
         caller_info = {"caller_id": "5551234"}
         vb.detect_fraud(b"\x00" * 200, caller_info)
@@ -843,6 +867,7 @@ class TestDetectFraud:
 
         vb = VoiceBiometrics()
         vb.db = MagicMock()
+        vb._extract_voice_features = MagicMock(return_value={"energy": 0.5})
 
         caller_info = {"call_id": "call-123"}
         vb.detect_fraud(b"\x00" * 200, caller_info)
@@ -948,6 +973,7 @@ class TestExtractVoiceFeatures:
         assert result["zero_crossing_rate"] > 0
 
     @patch("pbx.features.voice_biometrics.get_logger")
+    @patch("pbx.features.voice_biometrics.LIBROSA_AVAILABLE", False)
     @patch("pbx.features.voice_biometrics.PYAUDIO_ANALYSIS_AVAILABLE", True)
     @patch("pbx.features.voice_biometrics.np")
     def test_pyaudio_analysis_path(self, mock_np: MagicMock, mock_get_logger: MagicMock) -> None:
@@ -1111,6 +1137,7 @@ class TestExtractVoiceFeatures:
         assert "spectral_rollof" in result
 
     @patch("pbx.features.voice_biometrics.get_logger")
+    @patch("pbx.features.voice_biometrics.LIBROSA_AVAILABLE", False)
     @patch("pbx.features.voice_biometrics.PYAUDIO_ANALYSIS_AVAILABLE", True)
     @patch("pbx.features.voice_biometrics.np")
     def test_pyaudio_analysis_returns_none(
@@ -1144,6 +1171,7 @@ class TestExtractVoiceFeatures:
         assert "energy" in result
 
     @patch("pbx.features.voice_biometrics.get_logger")
+    @patch("pbx.features.voice_biometrics.LIBROSA_AVAILABLE", False)
     @patch("pbx.features.voice_biometrics.PYAUDIO_ANALYSIS_AVAILABLE", True)
     @patch("pbx.features.voice_biometrics.np")
     def test_pyaudio_analysis_exception_path(
@@ -1177,6 +1205,7 @@ class TestExtractVoiceFeatures:
         assert "energy" in result
 
     @patch("pbx.features.voice_biometrics.get_logger")
+    @patch("pbx.features.voice_biometrics.LIBROSA_AVAILABLE", False)
     @patch("pbx.features.voice_biometrics.PYAUDIO_ANALYSIS_AVAILABLE", True)
     @patch("pbx.features.voice_biometrics.np")
     def test_pyaudio_analysis_audio_too_short_for_frame(

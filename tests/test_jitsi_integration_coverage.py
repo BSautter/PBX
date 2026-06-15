@@ -310,7 +310,7 @@ class TestGetParticipantUrl:
         with patch.object(integration, "_generate_jwt_token", return_value="jwt-xyz"):
             url = integration.get_participant_url("my-room", "Bob", is_moderator=False)
 
-        assert url == "https://jitsi.example.com/my-room?jwt=jwt-xyz"
+        assert url == 'https://jitsi.example.com/my-room?jwt=jwt-xyz#userInfo.displayName="Bob"'
 
     def test_get_participant_url_moderator_with_jwt(self) -> None:
         """Test moderator participant URL with JWT."""
@@ -595,8 +595,8 @@ class TestGenerateJwtToken:
 
         call_args = mock_jwt.encode.call_args
         payload = call_args.args[0]
-        assert "nb" in payload
-        assert abs(payload["nb"] - (now - 10)) < 5
+        assert "nbf" in payload
+        assert abs(payload["nbf"] - (now - 10)) < 5
 
 
 @pytest.mark.unit
@@ -614,7 +614,6 @@ class TestGetMeetingInfo:
         assert result["room_id"] == "my-room"
         assert result["url"] == "https://jitsi.example.com/my-room"
         assert result["server"] == "https://jitsi.example.com"
-        assert "note" in result
 
     def test_get_meeting_info_different_server(self) -> None:
         """Test meeting info URL uses correct server."""

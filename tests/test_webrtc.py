@@ -4,6 +4,7 @@ Test WebRTC browser calling support
 """
 
 from typing import Any
+from unittest.mock import patch
 
 from pbx.features.webrtc import WebRTCGateway, WebRTCSession, WebRTCSignalingServer
 
@@ -107,9 +108,12 @@ def test_webrtc_sdp_handling() -> bool:
     # Create session
     session = signaling.create_session("1002")
 
-    # Test SDP offer
+    # Test SDP offer. This exercises the signaling/store path; generating a
+    # real aiortc answer from a full offer is covered by the answer-SDP test,
+    # so force the legacy path here rather than feed aiortc a placeholder SDP.
     test_sdp_offer = "v=0\r\no=- 123456789 2 IN IP4 192.168.1.1\r\n..."
-    success = signaling.handle_offer(session.session_id, test_sdp_offer)
+    with patch("pbx.features.webrtc.AIORTC_AVAILABLE", False):
+        success = signaling.handle_offer(session.session_id, test_sdp_offer)
     assert success, "Should handle offer"
 
     retrieved_session = signaling.get_session(session.session_id)
@@ -282,12 +286,16 @@ def test_call_initiation() -> bool:
     class MockExtension:
         def __init__(self, number: str) -> None:
             self.number = number
+            self.address: tuple[str, int] | None = None
 
     class MockExtensionRegistry:
         def get_extension(self, number: str) -> MockExtension | None:
             if number in ["1001", "1002"]:
                 return MockExtension(number)
             return None
+
+        def get(self, number: str) -> MockExtension | None:
+            return self.get_extension(number)
 
     class MockCallManager:
         def __init__(self) -> None:
