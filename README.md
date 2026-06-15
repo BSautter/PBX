@@ -95,7 +95,7 @@ with no dependency on Asterisk or FreeSWITCH — alongside a modern TypeScript/V
 | Layer | Technology |
 |-------|------------|
 | Backend | Python 3.13+, Twisted (SIP server), Flask (REST API), SQLAlchemy 2.0 |
-| Frontend | TypeScript 5.9, Vite 7.3 |
+| Frontend | TypeScript 6.0, Vite 8.0 |
 | Database | PostgreSQL 17 (production), SQLite (development fallback) |
 | Protocols | SIP, SDP, RTP/RTCP, RFC 2833 DTMF, TLS 1.3 / SIPS / SRTP |
 | Tooling | uv (packaging), ruff (lint/format), mypy (strict), pytest, jest |

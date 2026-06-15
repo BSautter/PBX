@@ -337,8 +337,8 @@ typecheck-js: ## Run TypeScript type checking
 # =============================================================================
 
 .PHONY: lock
-lock: ## Generate requirements.lock from pyproject.toml
-	uv pip compile pyproject.toml -o requirements.lock
+lock: ## Generate requirements.lock from pyproject.toml (pinned via constraints.txt, Python 3.13)
+	uv pip compile pyproject.toml -c constraints.txt --python-version 3.13 -o requirements.lock
 
 .PHONY: sync
 sync: ## Install dependencies from requirements.lock

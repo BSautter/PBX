@@ -241,7 +241,7 @@ main() {
         print_message "$GREEN" ""
         print_message "$BLUE" "Next steps:"
         echo "  1. Edit CHANGELOG.md to add release notes"
-        echo "  2. git push origin main"
+        echo "  2. git push origin DEV"
         echo "  3. git push origin v$version"
         echo "  4. Create GitHub release at https://github.com/mattiIce/PBX/releases/new"
     fi

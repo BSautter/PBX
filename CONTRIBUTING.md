@@ -56,7 +56,7 @@ make check
 - **Quotes**: Double quotes
 - **Indentation**: 4 spaces
 - **Line endings**: LF only (enforced by `.editorconfig` and pre-commit)
-- **Type annotations**: Required — mypy strict mode is enabled for `api/`, `core/`, and `models/`
+- **Type annotations**: Required — mypy runs in strict mode across the package; only `features/`, `utils/`, `scripts/`, the test suite, and `api/license_api.py` are excluded
 - **Datetimes**: Always timezone-aware — use `datetime.now(tz=UTC)`, never bare `datetime.now()`
 - **File paths**: Use `pathlib.Path`, not `os.path`
 - **Exceptions**: Use specific exception types, not bare `except Exception`
@@ -103,7 +103,7 @@ Frontend tests use Jest with jsdom. Place test files under `admin/tests/`.
 
 ## Pull Request Process
 
-1. Fork the repository and create a feature branch off `main`.
+1. Fork the repository and create a feature branch off `DEV`.
 2. Make your changes and ensure the full check suite passes:
 
 ```bash

@@ -285,7 +285,7 @@
                         PBX_Core["PBXCore<br/>(Central Coordinator)"]
                         CallRouter["Call Router"]
                         CallStateMachine["Call State Machine"]
-                        FeatureInitializer["Feature Initializer<br/>(77 Modules)"]
+                        FeatureInitializer["Feature Initializer<br/>(76 Modules)"]
                     end
 
                     subgraph "REST API Layer"
@@ -388,7 +388,7 @@
         main.py → FlaskApp → Routes → Database Models<br>
         PBXCore → SIPServer → SIPMessage → SDP Negotiation<br>
         CallStateMachine → RTPHandler → JitterBuffer → RFC2833 (DTMF)<br>
-        FeatureInitializer → Loads 77 Feature Modules → Hook into Call Router
+        FeatureInitializer → Loads 76 Feature Modules → Hook into Call Router
     </div>
 
     <div class="legend">
@@ -424,7 +424,7 @@
             </tr>
             <tr>
                 <td><strong>Feature Modules</strong></td>
-                <td>77 Pluggable Features</td>
+                <td>76 Pluggable Features</td>
             </tr>
             <tr>
                 <td><strong>API Routes</strong></td>
@@ -440,7 +440,7 @@
     <div class="info-box">
         <strong>🏗️ Architecture Principles:</strong><br>
         1. <strong>Layered Design:</strong> Clear separation between protocol, core logic, API, frontend<br>
-        2. <strong>Pluggable Features:</strong> 77 independent feature modules<br>
+        2. <strong>Pluggable Features:</strong> 76 independent feature modules<br>
         3. <strong>Database-Backed:</strong> All state persists to PostgreSQL or SQLite<br>
         4. <strong>Stateless API:</strong> REST API can scale horizontally<br>
         5. <strong>Real-time Events:</strong> SIP processes calls synchronously; API handles async<br>

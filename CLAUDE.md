@@ -8,13 +8,13 @@ Warden VoIP is a comprehensive VoIP/PBX system built from scratch in Python 3.13
 
 | Item | Value |
 |------|-------|
-| Language | Python 3.13+ (backend), TypeScript 5.9 (frontend) |
+| Language | Python 3.13+ (backend), TypeScript 6.0 (frontend) |
 | Node.js | >=22 required |
 | Package manager | `uv pip` (Python), `npm` (frontend) |
-| Build system | `hatchling` (Python), `vite` 7.3 (frontend) |
+| Build system | `hatchling` (Python), `vite` 8.0 (frontend) |
 | Test framework | `pytest` 9+ (Python), `jest` 30 (frontend) |
 | Linter/Formatter | `ruff` 0.15 (Python), `markdownlint-cli2` (Markdown) |
-| Type checker | `mypy` 1.19 (strict mode, Python), `tsc` (TypeScript) |
+| Type checker | `mypy` 2.1 (strict mode, Python), `tsc` (TypeScript) |
 | Line length | 100 characters |
 | Entry point | `pbx/main.py` → `pbx-server` console script |
 
@@ -66,7 +66,7 @@ make pre-commit-run
 ```
 pbx/
 ├── api/              # REST API layer (Flask)
-│   ├── routes/       # 23 route modules organized by feature
+│   ├── routes/       # 22 route modules organized by feature
 │   ├── schemas/      # Request/response validation (5 schema modules)
 │   ├── app.py        # Flask app factory (create_app)
 │   ├── errors.py     # Error handling
@@ -87,7 +87,8 @@ pbx/
 ├── sip/              # SIP protocol implementation
 │   ├── server.py     # SIP server (Twisted-based)
 │   ├── message.py    # SIP message parser
-│   └── sdp.py        # SDP negotiation
+│   ├── sdp.py        # SDP negotiation
+│   └── transaction.py # SIP transaction state machine
 ├── rtp/              # RTP media handling
 │   ├── handler.py    # RTP relay
 │   ├── jitter_buffer.py
@@ -101,7 +102,7 @@ pbx/
 │   ├── voicemail.py
 │   ├── call_record.py
 │   └── registered_phone.py
-├── utils/            # Cross-cutting concerns (25 modules)
+├── utils/            # Cross-cutting concerns (24 modules)
 │   ├── config.py     # YAML config management
 │   ├── database.py   # DB abstraction (PostgreSQL/SQLite)
 │   ├── encryption.py # FIPS 140-2 encryption
@@ -128,7 +129,7 @@ admin/                # Frontend admin interface (root package.json)
 ├── js/
 │   ├── main.js       # Entry point
 │   ├── api/client.ts # API client (fetch wrapper with auth)
-│   ├── pages/        # 18 page modules (TypeScript)
+│   ├── pages/        # 19 page modules (TypeScript)
 │   ├── state/store.ts # State management
 │   ├── ui/           # UI components (notifications, tabs)
 │   ├── utils/        # Helpers (debounce, html, refresh)
@@ -136,7 +137,7 @@ admin/                # Frontend admin interface (root package.json)
 ├── css/              # Stylesheets
 └── tests/            # Jest tests (jsdom environment)
 
-tests/                # Python test suite (226 test files)
+tests/                # Python test suite (228 test files)
 ├── conftest.py       # Shared fixtures
 ├── integration/      # Integration tests (3 files: API auth, call flow, provisioning)
 └── test_*.py         # Unit and feature coverage tests
@@ -168,10 +169,10 @@ tests/                # Python test suite (226 test files)
 
 ### TypeScript (Frontend)
 
-- **TypeScript 5.9** with strict mode enabled
+- **TypeScript 6.0** with strict mode enabled
 - **Target**: ES2024
 - **Module resolution**: `bundler` (ESNext modules)
-- **Build tool**: Vite 7.3 (base path `/admin/`, dev server proxies `/api` to `:9000`)
+- **Build tool**: Vite 8.0 (base path `/admin/`, dev server proxies `/api` to `:9000`)
 - **Testing**: Jest 30 with jsdom, transpiled via `@swc/jest`
 - **Path aliases** in `tsconfig.json`: `@api/*`, `@state/*`, `@ui/*`, `@utils/*`, `@pages/*`
 - **Node.js >=22** required
@@ -248,9 +249,9 @@ System dependencies required in CI: `espeak`, `ffmpeg`, `libopus-dev`, `portaudi
 
 Configured in `.pre-commit-config.yaml`:
 
-1. **pre-commit-hooks** (v6.0.0) — trailing whitespace, EOF, YAML/JSON/TOML/XML checks, merge conflicts, debug statements, private key detection, LF line endings, test naming, no-commit-to-main
-2. **ruff** (v0.15.1) — lint with `--fix` + format
-3. **mypy** (v1.19.1) — type checking (excludes tests, skipped in CI)
+1. **pre-commit-hooks** (v6.0.0) — trailing whitespace, EOF, YAML/JSON/TOML/XML checks, merge conflicts, debug statements, private key detection, LF line endings, test naming, no-commit-to-branch (DEV)
+2. **ruff** (v0.15.17) — lint with `--fix` + format
+3. **mypy** (v2.1.0) — type checking (excludes tests, skipped in CI)
 4. **bandit** (1.9.3) — security scanning (excludes tests)
 5. **yamllint** (v1.38.0) — YAML linting (excludes config files)
 6. **markdownlint-cli2** (v0.21.0) — Markdown linting
@@ -275,8 +276,7 @@ Configured in `.pre-commit-config.yaml`:
 | `Dockerfile` | Multi-stage build (python:3.14-slim-bookworm) |
 | `VERSION` | Project version file |
 | `constraints.txt` | Pinned dependency versions for reproducible builds |
-| `requirements.lock` | Locked requirements |
-| `uv.lock` | uv lockfile |
+| `requirements.lock` | Full dependency lock compiled from `pyproject.toml` + `constraints.txt` (via `make lock`) |
 | `alembic.ini` | Alembic migration configuration |
 | `healthcheck.py` | Docker health check script |
 
@@ -303,7 +303,6 @@ Notable ignored rules:
 Per-file overrides:
 - `__init__.py`: `F401` ignored (re-exports)
 - `tests/*`: Relaxed rules (`F401`, `F811`, `ARG`, `PLR`, `PT`, `B011`, `PLC0415`, `N806`, `N803`)
-- `pbx/api/rest_api.py`: All rules ignored (deprecated file)
 - `pbx/features/*`, `pbx/core/*`, `pbx/sip/*`, `pbx/api/routes/*`, `pbx/api/app.py`, `pbx/api/server.py`, `pbx/api/utils.py`, `pbx/api/license_api.py`, `pbx/api/opensource_integration_api.py`, `pbx/rtp/handler.py`, `pbx/main.py`, `pbx/utils/*`, `pbx/integrations/*`: `PLC0415` ignored (lazy imports intentional)
 - `scripts/*`: `PLC0415`, `PLW1510`, `PT028` ignored
 

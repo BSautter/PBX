@@ -1,0 +1,15 @@
+# Gitleaks configuration for Warden VoIP.
+#
+# Extends the upstream default ruleset and allowlists the placeholder
+# authorization tokens used in documentation examples (e.g. the curl
+# snippets in TROUBLESHOOTING.md / TROUBLESHOOTING.html). These are
+# substitute-me example values, not real secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation example/placeholder auth tokens (not real secrets)"
+regexTarget = "line"
+regexes = [
+  '''Authorization: Bearer (YOUR_TOKEN|\$TOKEN|<token>|<your-token>)''',
+]
