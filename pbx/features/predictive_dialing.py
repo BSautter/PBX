@@ -120,7 +120,7 @@ class PredictiveDialer:
         self.logger.info(f"  Enabled: {self.enabled}")
 
     def create_campaign(
-        self, campaign_id: str, name: str, dialing_mode: str = "progressive"
+        self, campaign_id: str, name: str, dialing_mode: str | DialingMode = "progressive"
     ) -> Campaign:
         """
         Create a new dialing campaign
@@ -133,7 +133,7 @@ class PredictiveDialer:
         Returns:
             Campaign: Created campaign
         """
-        mode = DialingMode(dialing_mode)
+        mode = dialing_mode if isinstance(dialing_mode, DialingMode) else DialingMode(dialing_mode)
         campaign = Campaign(campaign_id, name, mode)
         self.campaigns[campaign_id] = campaign
         self.total_campaigns += 1
@@ -144,7 +144,7 @@ class PredictiveDialer:
                 {
                     "campaign_id": campaign_id,
                     "name": name,
-                    "dialing_mode": dialing_mode,
+                    "dialing_mode": mode.value,
                     "status": campaign.status.value,
                     "max_attempts": campaign.max_attempts,
                     "retry_interval": campaign.retry_interval,
@@ -155,6 +155,17 @@ class PredictiveDialer:
         self.logger.info(f"  Dialing mode: {dialing_mode}")
 
         return campaign
+
+    def get_campaign(self, campaign_id: str) -> Campaign | None:
+        """Return an in-memory campaign by ID, or None if not found.
+
+        Args:
+            campaign_id: Campaign identifier
+
+        Returns:
+            Campaign | None: The campaign if it exists, otherwise None.
+        """
+        return self.campaigns.get(campaign_id)
 
     def add_contacts(self, campaign_id: str, contacts: list[dict]) -> int:
         """

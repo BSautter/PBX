@@ -3,7 +3,12 @@ Microsoft Teams Integration
 Enables SIP Direct Routing, presence sync, and collaboration features with Microsoft Teams
 """
 
+from typing import TYPE_CHECKING, Any, cast
+
 from pbx.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from pbx.core.pbx import PBXCore
 
 try:
     import requests
@@ -52,7 +57,7 @@ class TeamsIntegration:
         self.graph_endpoint = "https://graph.microsoft.com/v1.0"
         self.scopes = ["https://graph.microsoft.com/.default"]
         self.access_token: str | None = None
-        self.msal_app: object | None = None
+        self.msal_app: Any = None
 
         if self.enabled:
             if not REQUESTS_AVAILABLE:
@@ -174,7 +179,7 @@ class TeamsIntegration:
             return False
 
     def route_call_to_teams(
-        self, from_number: str, to_teams_user: str, pbx_core: object | None = None
+        self, from_number: str, to_teams_user: str, pbx_core: "PBXCore | None" = None
     ) -> bool:
         """
         Route a call from PBX to Microsoft Teams user via SIP Direct Routing
@@ -362,7 +367,9 @@ class TeamsIntegration:
             }
 
             self.logger.info(f"Creating/getting chat with {to_user}")
-            chat_response = requests.post(chat_url, headers=headers, json=chat_body, timeout=10)
+            chat_response = requests.post(
+                chat_url, headers=headers, json=cast("Any", chat_body), timeout=10
+            )
 
             # Note: If chat already exists, API may return 201 or we need to get existing chat
             # For simplicity, we'll handle both cases
@@ -452,7 +459,7 @@ class TeamsIntegration:
                 },
             }
 
-            response = requests.post(url, headers=headers, json=payload, timeout=10)
+            response = requests.post(url, headers=headers, json=cast("Any", payload), timeout=10)
 
             if response.status_code in [200, 201]:
                 meeting_data = response.json()

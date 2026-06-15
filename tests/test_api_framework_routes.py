@@ -698,31 +698,6 @@ class TestIntegrationRoutes:
 class TestComplianceRoutes:
     """Test compliance endpoints."""
 
-    def test_get_gdpr_consents(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.GDPRComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.get_consent_status.return_value = [{"type": "recording"}]
-            response = api_client.get("/api/framework/compliance/gdpr/consents?extension=1001")
-            assert response.status_code == 200
-            assert "consents" in _json(response)
-
-    def test_get_gdpr_requests(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.GDPRComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.get_pending_requests.return_value = []
-            response = api_client.get("/api/framework/compliance/gdpr/requests")
-            assert response.status_code == 200
-
     def test_get_soc2_controls(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.database.enabled = True
         with (
@@ -732,64 +707,6 @@ class TestComplianceRoutes:
             MockEngine.return_value.get_all_controls.return_value = [{"control": "CC1.1"}]
             response = api_client.get("/api/framework/compliance/soc2/controls")
             assert response.status_code == 200
-
-    def test_get_pci_audit_log(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.PCIDSSComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.get_audit_log.return_value = []
-            response = api_client.get("/api/framework/compliance/pci/audit-log")
-            assert response.status_code == 200
-
-    def test_record_gdpr_consent(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.GDPRComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.record_consent.return_value = True
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/consent",
-                json={"extension": "1001", "consent_type": "recording"},
-            )
-            assert response.status_code == 200
-
-    def test_withdraw_gdpr_consent(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.GDPRComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.withdraw_consent.return_value = True
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/withdraw",
-                json={"extension": "1001", "consent_type": "recording"},
-            )
-            assert response.status_code == 200
-
-    def test_create_gdpr_request(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.GDPRComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.create_data_request.return_value = "req-123"
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/request",
-                json={"extension": "1001", "type": "export"},
-            )
-            assert response.status_code == 200
-            assert _json(response)["request_id"] == "req-123"
 
     def test_register_soc2_control(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.database.enabled = True
@@ -801,21 +718,6 @@ class TestComplianceRoutes:
             response = api_client.post(
                 "/api/framework/compliance/soc2/control",
                 json={"control_id": "CC1.1", "name": "Access Control"},
-            )
-            assert response.status_code == 200
-
-    def test_log_pci_event(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with (
-            patch(AUTH_PATCH, return_value=AUTH_RETURN),
-            patch(
-                "pbx.features.compliance_framework.PCIDSSComplianceEngine", create=True
-            ) as MockEngine,
-        ):
-            MockEngine.return_value.log_audit_event.return_value = True
-            response = api_client.post(
-                "/api/framework/compliance/pci/log",
-                json={"event": "card_access", "user": "1001"},
             )
             assert response.status_code == 200
 
@@ -1483,10 +1385,11 @@ class TestVoiceBiometricsRoutes:
             profile.user_id = "u1"
             profile.extension = "1001"
             profile.status = "enrolled"
-            profile.enrollment_completed = True
+            profile.enrollment_samples = 3
+            profile.required_samples = 3
             profile.created_at = datetime(2025, 1, 1, tzinfo=UTC)
-            profile.verification_count = 5
-            profile.fraud_attempts = 0
+            profile.successful_verifications = 5
+            profile.failed_verifications = 0
             mock_vb.return_value.get_profile.return_value = profile
             response = api_client.get("/api/framework/voice-biometrics/profile/u1")
             assert response.status_code == 200

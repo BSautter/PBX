@@ -4,7 +4,7 @@ Handles Active Directory, CRM, Jitsi, EspoCRM, and Matrix integration
 endpoints.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from flask import Blueprint, Response, request
 
@@ -184,7 +184,7 @@ def handle_jitsi_create_meeting() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/jitsi/meetings")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in Jitsi create meeting: {e}")
@@ -203,7 +203,7 @@ def handle_jitsi_instant_meeting() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/jitsi/instant")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in Jitsi instant meeting: {e}")
@@ -225,7 +225,7 @@ def handle_espocrm_create_contact() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/espocrm/contacts")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in EspoCRM create contact: {e}")
@@ -244,7 +244,7 @@ def handle_espocrm_log_call() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/espocrm/calls")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in EspoCRM log call: {e}")
@@ -263,7 +263,7 @@ def handle_espocrm_search_contact() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("GET /api/integrations/espocrm/contacts/search")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in EspoCRM search contact: {e}")
@@ -285,7 +285,7 @@ def handle_matrix_send_message() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/matrix/messages")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in Matrix send message: {e}")
@@ -304,7 +304,7 @@ def handle_matrix_send_notification() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/matrix/notifications")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in Matrix send notification: {e}")
@@ -323,7 +323,7 @@ def handle_matrix_create_room() -> Response:
         endpoints = _get_integration_endpoints()
         handler = endpoints.get("POST /api/integrations/matrix/rooms")
         if handler:
-            return handler(request)
+            return cast("Response", handler(request))
         return send_json({"error": "Handler not found"}, 500)
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Error in Matrix create room: {e}")

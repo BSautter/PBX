@@ -75,11 +75,10 @@ def handle_get_qos_history() -> tuple[Response, int]:
             return send_json({"error": "limit cannot exceed 10000"}, 400), 400
 
         # Validate min_mos parameter
-        min_mos = request.args.get("min_mos", None)
-        if min_mos:
-            min_mos = float(min_mos)
-            if min_mos < 1.0 or min_mos > 5.0:
-                return send_json({"error": "min_mos must be between 1.0 and 5.0"}, 400), 400
+        min_mos_param = request.args.get("min_mos", None)
+        min_mos = float(min_mos_param) if min_mos_param else None
+        if min_mos is not None and (min_mos < 1.0 or min_mos > 5.0):
+            return send_json({"error": "min_mos must be between 1.0 and 5.0"}, 400), 400
 
         history = pbx_core.qos_monitor.get_historical_metrics(limit, min_mos)
         return send_json({"count": len(history), "metrics": history}), 200

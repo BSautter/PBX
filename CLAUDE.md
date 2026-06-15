@@ -160,7 +160,7 @@ tests/                # Python test suite (226 test files)
 - **Quotes**: Double quotes
 - **Indentation**: 4 spaces
 - **Imports**: Sorted by ruff (isort rules), `pbx` is first-party
-- **Type annotations**: Required — mypy strict mode is enabled for `api/`, `core/`, `models/`
+- **Type annotations**: Required — `mypy pbx/` runs in strict mode and passes cleanly across the whole package. The only modules excluded via `ignore_errors` are `features/`, `utils/`, `scripts/`, the test suite, and `api/license_api.py`; everything else (`api/`, `core/`, `models/`, `sip/`, `rtp/`, `integrations/`, `main.py`) is strictly type-checked
 - **Datetime**: Always use timezone-aware datetimes (UTC) — `datetime.now(tz=UTC)`, never bare `datetime.now()`
 - **File paths**: Use `pathlib.Path`, not `os.path`
 - **Exception handling**: Use specific exception types, not bare `except Exception`

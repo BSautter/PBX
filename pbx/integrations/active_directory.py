@@ -5,6 +5,7 @@ Provides SSO, user provisioning, and group-based permissions
 
 import re
 import secrets
+from typing import Any, cast
 
 from pbx.utils.logger import get_logger
 
@@ -40,8 +41,8 @@ class ActiveDirectoryIntegration:
         self.bind_password = config.get("integrations.active_directory.bind_password")
         self.use_ssl = config.get("integrations.active_directory.use_ssl", True)
         self.auto_provision = config.get("integrations.active_directory.auto_provision", False)
-        self.connection: object | None = None
-        self.server: object | None = None
+        self.connection: Any = None
+        self.server: Any = None
 
         if self.enabled:
             if not LDAP3_AVAILABLE:
@@ -194,9 +195,9 @@ class ActiveDirectoryIntegration:
 
     def sync_users(
         self,
-        extension_registry: object | None = None,
-        extension_db: object | None = None,
-        phone_provisioning: object | None = None,
+        extension_registry: Any = None,
+        extension_db: Any = None,
+        phone_provisioning: Any = None,
     ) -> dict | int:
         """
         Synchronize users from Active Directory
@@ -307,6 +308,10 @@ class ActiveDirectoryIntegration:
                     if not username or not phone_number:
                         skipped_count += 1
                         continue
+
+                    # Ensure a display name is always available (fall back to
+                    # the username, which is guaranteed non-empty here)
+                    display_name = display_name or username
 
                     # Clean phone number to get just digits (remove spaces,
                     # dashes, etc.)
@@ -488,7 +493,12 @@ class ActiveDirectoryIntegration:
                                 # Apply permissions to config
                                 ext_config.update(permissions)
 
-                                new_ext = Extension(extension_number, display_name, ext_config)
+                                # ext_config is a dict; Extension stores it as
+                                # self.config (used as a dict at runtime). Cast
+                                # to satisfy the constructor's parameter type.
+                                new_ext = Extension(
+                                    extension_number, display_name, cast("Any", ext_config)
+                                )
                                 extension_registry.extensions[extension_number] = new_ext
 
                             # Log permissions if any were applied
@@ -606,7 +616,7 @@ class ActiveDirectoryIntegration:
         Returns:
             dict: Permissions dictionary (e.g., {'admin': True, 'external_calling': True})
         """
-        permissions = {}
+        permissions: dict[str, bool] = {}
 
         # Get group permissions configuration
         group_permissions_config = self.config.get(
@@ -823,7 +833,7 @@ class ActiveDirectoryIntegration:
 
             # Return photo bytes if available
             if hasattr(user_entry, "thumbnailPhoto") and user_entry.thumbnailPhoto.value:
-                photo_data = user_entry.thumbnailPhoto.value
+                photo_data: bytes = user_entry.thumbnailPhoto.value
                 self.logger.info(f"Retrieved photo for user {username} ({len(photo_data)} bytes)")
                 return photo_data
             self.logger.info(f"No photo available for user {username}")

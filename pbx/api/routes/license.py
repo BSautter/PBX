@@ -32,7 +32,7 @@ def _require_license_admin() -> tuple[bool, dict[str, Any]]:
         - On authorization failure: a dict including at least {"status_code": 403}
     """
     is_authenticated, payload = verify_authentication()
-    if not is_authenticated:
+    if not is_authenticated or payload is None:
         # User is not authenticated -> should be treated as 401 Unauthorized
         return False, {"status_code": 401, "error": "unauthenticated"}
 

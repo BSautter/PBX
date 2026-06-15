@@ -3,7 +3,6 @@ Single Sign-On (SSO) Support
 SAML/OAuth enterprise authentication using free libraries
 """
 
-import contextlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -95,7 +94,8 @@ class SSOAuthService:
             User information and session
         """
         import base64
-        from xml.etree import ElementTree
+
+        from defusedxml.ElementTree import ParseError, fromstring
 
         if not self.enabled or self.provider != "saml":
             return {"error": "SAML not enabled"}
@@ -108,11 +108,9 @@ class SSOAuthService:
                 # Try treating it as raw XML
                 decoded_response = saml_response
 
-            # Parse XML safely - disable entity expansion to prevent XXE attacks
-            parser = ElementTree.XMLParser()  # nosec B314
-            with contextlib.suppress(AttributeError):
-                parser.entity = {}
-            root = ElementTree.fromstring(decoded_response, parser=parser)  # nosec B314
+            # Parse XML with defusedxml, which forbids DTDs, external entities,
+            # and entity expansion (prevents XXE / billion-laughs attacks).
+            root = fromstring(decoded_response)
 
             # Define SAML namespaces
             ns = {
@@ -216,7 +214,7 @@ class SSOAuthService:
 
             return {"session_id": session_id, "user_info": user_info}
 
-        except ElementTree.ParseError as e:
+        except ParseError as e:
             self.logger.error(f"Error parsing SAML response XML: {e}")
             return {"error": f"Invalid SAML XML: {e}"}
         except (KeyError, TypeError, ValueError) as e:

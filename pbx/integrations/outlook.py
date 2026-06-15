@@ -4,8 +4,12 @@ Provides calendar sync, contact sync, and presence integration
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
 from pbx.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from pbx.core.pbx import PBXCore
 
 try:
     import requests
@@ -45,7 +49,7 @@ class OutlookIntegration:
             "integrations.outlook.scopes", ["https://graph.microsoft.com/.default"]
         )
         self.access_token: str | None = None
-        self.msal_app: object | None = None
+        self.msal_app: Any = None
 
         if self.enabled:
             if not REQUESTS_AVAILABLE:
@@ -351,7 +355,7 @@ class OutlookIntegration:
             }
 
             self.logger.info(f"Logging call to calendar for {user_email}")
-            response = requests.post(url, headers=headers, json=event_body, timeout=10)
+            response = requests.post(url, headers=headers, json=cast("Any", event_body), timeout=10)
 
             if response.status_code == 201:
                 self.logger.info(f"Successfully logged call to calendar for {user_email}")
@@ -414,7 +418,7 @@ class OutlookIntegration:
         user_email: str,
         meeting_id: str,
         minutes_before: int = 5,
-        pbx_core: object | None = None,
+        pbx_core: "PBXCore | None" = None,
         extension_number: str | None = None,
     ) -> bool:
         """

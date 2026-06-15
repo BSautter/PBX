@@ -4,6 +4,7 @@ Handles phone lookup by MAC/IP address and phone reboot operations.
 """
 
 import re
+from typing import Any
 
 from flask import Blueprint, Response
 
@@ -29,7 +30,7 @@ def handle_phone_lookup(identifier: str) -> Response:
     if not pbx_core:
         return send_json({"error": "PBX not initialized"}, 500)
 
-    result = {
+    result: dict[str, Any] = {
         "identifier": identifier,
         "type": None,
         "registered_phone": None,

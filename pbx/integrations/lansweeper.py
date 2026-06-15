@@ -4,6 +4,7 @@ Integration with Lansweeper IT asset management system (free API)
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from pbx.utils.logger import get_logger
 
@@ -33,8 +34,8 @@ class LansweeperIntegration:
         self.password = lansweeper_config.get("password")
 
         # Cache for asset data
-        self.asset_cache = {}  # mac_address -> asset info
-        self.phone_assets = {}  # extension -> Lansweeper asset
+        self.asset_cache: dict[str, Any] = {}  # mac_address -> asset info
+        self.phone_assets: dict[str, Any] = {}  # extension -> Lansweeper asset
         self.cache_ttl = lansweeper_config.get("cache_ttl_seconds", 3600)  # 1 hour
 
         if self.enabled and not REQUESTS_AVAILABLE:
@@ -83,7 +84,8 @@ class LansweeperIntegration:
                 return None
 
             response.raise_for_status()
-            return response.json()
+            result: dict[Any, Any] | list[Any] | None = response.json()
+            return result
 
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Lansweeper API error: {e}")
@@ -109,7 +111,8 @@ class LansweeperIntegration:
         if mac_normalized in self.asset_cache:
             cached = self.asset_cache[mac_normalized]
             if (datetime.now(UTC) - cached["cached_at"]).total_seconds() < self.cache_ttl:
-                return cached["data"]
+                cached_data: dict[Any, Any] | None = cached["data"]
+                return cached_data
 
         # Query Lansweeper API
         # Note: Actual API endpoint depends on Lansweeper version
@@ -120,7 +123,7 @@ class LansweeperIntegration:
             self.asset_cache[mac_normalized] = {"data": result, "cached_at": datetime.now(UTC)}
 
             self.logger.info(f"Retrieved asset info for MAC {mac_address}")
-            return result
+            return result if isinstance(result, dict) else None
 
         return None
 
@@ -133,7 +136,7 @@ class LansweeperIntegration:
 
         if result:
             self.logger.info(f"Retrieved asset info for IP {ip_address}")
-            return result
+            return result if isinstance(result, dict) else None
 
         return None
 
@@ -380,7 +383,7 @@ class LansweeperIntegration:
 
         phones = self.get_all_phones()
 
-        report = {
+        report: dict[str, Any] = {
             "generated_at": datetime.now(UTC).isoformat(),
             "total_phones": len(phones),
             "by_building": {},

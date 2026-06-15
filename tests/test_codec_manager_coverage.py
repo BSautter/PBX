@@ -198,6 +198,8 @@ class TestVideoCodecManagerDetection:
         assert "VP9" in manager.available_codecs
         assert "AV1" in manager.available_codecs
 
+    @patch("pbx.features.video_codec.av")
+    @patch("pbx.features.video_codec.PYAV_AVAILABLE", True)
     @patch("pbx.features.video_codec.VideoCodecManager._check_ffmpeg")
     @patch("pbx.features.video_codec.subprocess.run")
     @patch("pbx.features.video_codec.get_logger")
@@ -206,8 +208,9 @@ class TestVideoCodecManagerDetection:
         mock_get_logger: MagicMock,
         mock_run: MagicMock,
         mock_ffmpeg: MagicMock,
+        mock_av: MagicMock,
     ) -> None:
-        """Test fallback when no codecs detected."""
+        """H.264 is detected via PyAV when FFmpeg is unavailable."""
         from pbx.features.video_codec import VideoCodecManager
 
         mock_ffmpeg.return_value = False
@@ -215,7 +218,7 @@ class TestVideoCodecManagerDetection:
 
         manager = VideoCodecManager()
 
-        # Should still have H.264 as fallback
+        # PyAV provides H.264 (libx264) when FFmpeg detection finds nothing.
         assert "H.264" in manager.available_codecs
 
 

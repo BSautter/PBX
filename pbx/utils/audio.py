@@ -23,6 +23,41 @@ _ULAW_BIAS = 0x84
 _ULAW_CLIP = 32635
 
 
+def generate_tts_audio(text: str, sample_rate: int = 8000) -> bytes | None:
+    """Generate telephony-format WAV audio bytes from text using TTS.
+
+    Wraps :func:`pbx.utils.tts.text_to_wav_telephony`, returning the rendered
+    WAV audio as raw bytes (suitable for RTP playback), or ``None`` if TTS is
+    unavailable or generation fails.
+
+    Args:
+        text: Text to synthesize into speech.
+        sample_rate: Output sample rate in Hz (default 8000 for G.711 telephony).
+
+    Returns:
+        The WAV audio as bytes, or None if TTS is unavailable or generation fails.
+    """
+    import tempfile
+
+    from pbx.utils.tts import is_tts_available, text_to_wav_telephony
+
+    if not is_tts_available():
+        return None
+
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = tmp.name
+        if text_to_wav_telephony(text, tmp_path, sample_rate=sample_rate):
+            return Path(tmp_path).read_bytes()
+        return None
+    except Exception:
+        return None
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)
+
+
 def pcm16_to_ulaw(pcm_data: bytes) -> bytes:
     """
     Convert 16-bit PCM audio data to G.711 μ-law format.

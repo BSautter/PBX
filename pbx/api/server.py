@@ -115,6 +115,10 @@ class PBXFlaskServer:
             ca_token = ca_config.get("token")
             hostname = ca_config.get("hostname", socket.gethostname())
 
+            if not cert_file or not key_file:
+                logger.error("Certificate or key file path not configured")
+                return False
+
             if not ca_url:
                 logger.error("CA URL not configured")
                 return False

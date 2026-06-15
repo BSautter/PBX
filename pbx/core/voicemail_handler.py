@@ -481,7 +481,7 @@ class VoicemailHandler:
                 # Use '*' which won't be collected as part of PIN (only 0-9 are
                 # collected)
                 pbx.logger.info("[VM IVR] Initializing IVR state machine...")
-                initial_action: dict[str, Any] = voicemail_ivr.handle_dtmf("*")
+                initial_action: Any = voicemail_ivr.handle_dtmf("*")
 
                 # Play the PIN entry prompt that the IVR returned
                 if not isinstance(initial_action, dict):
