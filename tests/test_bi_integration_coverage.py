@@ -321,7 +321,16 @@ class TestExecuteQuery:
         start = datetime(2024, 6, 1, tzinfo=UTC)
         end = datetime(2024, 6, 30, tzinfo=UTC)
 
-        with patch("pbx.utils.database.get_database", return_value=mock_db):
+        # Mock psycopg2 the same way the sibling tests do so the test does not
+        # depend on psycopg2 being importable in the environment.
+        mock_psycopg2_extras = MagicMock()
+        mock_psycopg2_extras.RealDictCursor = "FakeCursorClass"
+        with (
+            patch("pbx.utils.database.get_database", return_value=mock_db),
+            patch.dict(
+                "sys.modules", {"psycopg2": MagicMock(), "psycopg2.extras": mock_psycopg2_extras}
+            ),
+        ):
             bi._execute_query(
                 "SELECT * FROM t WHERE d >= :start_date AND d <= :end_date",
                 start,
