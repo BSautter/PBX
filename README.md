@@ -6,21 +6,37 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
   [![Linting: Ruff](https://img.shields.io/badge/linting-ruff-261230.svg)](https://github.com/astral-sh/ruff)
-  [![Tests](https://github.com/mattiIce/PBX/workflows/Tests/badge.svg)](https://github.com/mattiIce/PBX/actions)
-  [![Code Quality](https://github.com/mattiIce/PBX/workflows/Code%20Quality/badge.svg)](https://github.com/mattiIce/PBX/actions)
-  [![codecov](https://codecov.io/gh/mattiIce/PBX/branch/main/graph/badge.svg)](https://codecov.io/gh/mattiIce/PBX)
+  [![Tests](https://github.com/mattiIce/PBX/actions/workflows/tests.yml/badge.svg?branch=DEV)](https://github.com/mattiIce/PBX/actions/workflows/tests.yml)
+  [![Code Quality](https://github.com/mattiIce/PBX/actions/workflows/code-quality.yml/badge.svg?branch=DEV)](https://github.com/mattiIce/PBX/actions/workflows/code-quality.yml)
+  [![codecov](https://codecov.io/gh/mattiIce/PBX/branch/DEV/graph/badge.svg)](https://codecov.io/gh/mattiIce/PBX)
 
   **A comprehensive, feature-rich Private Branch Exchange (PBX) and VoIP system built from scratch in Python**
 </div>
 
 ---
 
-## Documentation
+Warden VoIP is a complete, self-hosted PBX and VoIP platform written in pure Python 3.13+. It
+implements the full SIP signaling stack, RTP media handling, and 76 pluggable feature modules —
+with no dependency on Asterisk or FreeSWITCH — alongside a modern TypeScript/Vite admin interface.
 
-- **[COMPLETE_GUIDE.md](COMPLETE_GUIDE.md)** - Comprehensive documentation covering installation, deployment, features, integrations, security, troubleshooting, and API reference
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Troubleshooting guide for administrators with solutions to all known issues
-- **[docs/](docs/)** - Operational guides (deployment, HA, incident response, capacity planning, reverse proxy)
-- **[docs/reference/](docs/reference/)** - Technical reference (SIP implementation, phone book API, framework features)
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Docker](#docker)
+- [Production Deployment](#production-deployment-ubuntu-2404-lts)
+- [Admin Panel](#admin-panel)
+- [Dialplan](#dialplan)
+- [API](#api)
+- [Monitoring](#monitoring)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Documentation](#documentation)
+- [Known Issues](#known-issues)
+- [License](#license)
+- [Support](#support)
 
 ## Features
 
@@ -74,10 +90,21 @@
 - **E911 Compliance** - Ray Baum's Act dispatchable location support
 - **Web Admin Panel** - Modern browser-based management with MFA support
 
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | Python 3.13+, Twisted (SIP server), Flask (REST API), SQLAlchemy 2.0 |
+| Frontend | TypeScript 5.9, Vite 7.3 |
+| Database | PostgreSQL 17 (production), SQLite (development fallback) |
+| Protocols | SIP, SDP, RTP/RTCP, RFC 2833 DTMF, TLS 1.3 / SIPS / SRTP |
+| Tooling | uv (packaging), ruff (lint/format), mypy (strict), pytest, jest |
+| Deployment | Docker Compose, Kubernetes, Terraform (AWS), systemd |
+
 ## Requirements
 
 - Python 3.13+
-- Node.js 22+ (for frontend admin interface)
+- Node.js 22+ (for the frontend admin interface)
 - PyYAML, cryptography>=46.0.5
 - Network access for SIP (5060/udp) and RTP (10000-20000/udp) ports
 
@@ -123,6 +150,19 @@ The PBX starts on:
 - **REST API / Admin Panel**: HTTPS port 9000
 
 See [COMPLETE_GUIDE.md - Section 1.3](COMPLETE_GUIDE.md#13-environment-configuration) for database and environment setup.
+
+## Docker
+
+Spin up the full stack (PBX + PostgreSQL 17 + Redis 7 + Prometheus + Grafana) with Docker Compose:
+
+```bash
+make docker-build      # docker compose build
+make docker-up         # docker compose up -d
+docker compose logs -f # tail logs
+make docker-down       # docker compose down
+```
+
+The Compose definition lives in [docker-compose.yml](docker-compose.yml).
 
 ## Production Deployment (Ubuntu 24.04 LTS)
 
@@ -179,14 +219,14 @@ Access at `https://localhost:9000/admin/` for system management.
 ## API
 
 ```bash
-curl http://localhost:9000/api/status              # System status
+curl http://localhost:9000/api/status               # System status
 curl http://localhost:9000/api/extensions           # List extensions
 curl http://localhost:9000/api/calls                # Active calls
-curl http://localhost:9000/api/analytics/advanced    # Call records
+curl http://localhost:9000/api/analytics/advanced   # Call records
 curl http://localhost:9000/api/config               # Configuration
 ```
 
-See [COMPLETE_GUIDE.md - Section 9.2](COMPLETE_GUIDE.md#92-rest-api-reference) for full API reference.
+See [COMPLETE_GUIDE.md - Section 9.2](COMPLETE_GUIDE.md#92-rest-api-reference) for the full API reference.
 
 ## Monitoring
 
@@ -195,16 +235,42 @@ See [COMPLETE_GUIDE.md - Section 9.2](COMPLETE_GUIDE.md#92-rest-api-reference) f
 - **API endpoints**: `/api/analytics/advanced`, `/api/statistics`
 - **Grafana dashboards**: See [grafana/dashboards/](grafana/dashboards/)
 
+## Project Structure
+
+```text
+pbx/
+├── api/          # Flask REST API (22 route modules) + schemas
+├── core/         # PBXCore engine, call state machine, routing, IVR, voicemail
+├── sip/          # SIP protocol stack (Twisted) + SDP negotiation
+├── rtp/          # RTP relay, jitter buffer, RFC 2833 DTMF, RTCP monitoring
+├── features/     # 76 pluggable feature modules
+├── models/       # SQLAlchemy ORM models
+├── utils/        # Cross-cutting concerns (config, DB, encryption, security)
+└── integrations/ # Active Directory, Teams, Zoom, Jitsi, Matrix, EspoCRM, ...
+
+admin/            # TypeScript/Vite admin interface (19 pages)
+tests/            # Python test suite (228 test files)
+```
+
+See [CLAUDE.md](CLAUDE.md) for the full architecture reference.
+
 ## Development
 
 ```bash
-make check              # Run all checks (format + lint + test)
-make test               # All tests (225 test files, Python + JavaScript)
-make lint               # ruff check + mypy
-make dev                # Start backend + frontend dev servers
+make check   # Run all checks (format + lint + test)
+make test    # All tests (Python + JavaScript)
+make lint    # ruff check + mypy
+make dev     # Start backend + frontend dev servers
 ```
 
-The project includes 76 feature modules, 226 test files, and 18 admin panel pages. See [CLAUDE.md](CLAUDE.md) for full development reference.
+The project includes 76 feature modules, 228 Python test files, and 19 admin panel pages. See [CLAUDE.md](CLAUDE.md) for the full development reference.
+
+## Documentation
+
+- **[COMPLETE_GUIDE.md](COMPLETE_GUIDE.md)** - Comprehensive documentation covering installation, deployment, features, integrations, security, troubleshooting, and API reference
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Troubleshooting guide for administrators with solutions to all known issues
+- **[docs/](docs/)** - Operational guides (deployment, HA, incident response, capacity planning, reverse proxy)
+- **[docs/reference/](docs/reference/)** - Technical reference (SIP implementation, phone book API, framework features)
 
 ## Known Issues
 
