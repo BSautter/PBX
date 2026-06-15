@@ -1688,16 +1688,16 @@ git status
 git fetch origin
 
 # Review changes before applying
-git log HEAD..origin/main --oneline
+git log HEAD..origin/DEV --oneline
 
 # See detailed changes
-git diff HEAD..origin/main
+git diff HEAD..origin/DEV
 
 # Backup local modifications (if any)
 git stash save "Backup before update $(date)"
 
 # Pull latest changes
-git pull origin main
+git pull origin DEV
 
 # Update dependencies (if pyproject.toml changed)
 make install-prod
@@ -1719,13 +1719,13 @@ sudo journalctl -u pbx -f
 cd /opt/pbx
 
 # Check what changed in a specific file
-git diff origin/main -- path/to/file.py
+git diff origin/DEV -- path/to/file.py
 
 # Update just that file
-git checkout origin/main -- path/to/file.py
+git checkout origin/DEV -- path/to/file.py
 
 # Or update entire directory
-git checkout origin/main -- pbx/core/
+git checkout origin/DEV -- pbx/core/
 
 # Restart service
 sudo systemctl restart pbx
@@ -1740,7 +1740,7 @@ The PBX uses **Alembic** for database schema migrations with **SQLAlchemy** ORM 
 ```bash
 # Check if update includes new migrations
 cd /opt/pbx
-git log HEAD..origin/main -- alembic/versions/
+git log HEAD..origin/DEV -- alembic/versions/
 
 # View current migration status
 alembic current
@@ -2129,14 +2129,14 @@ sudo journalctl -u pbx -f
 # 1. Review release notes
 cd /opt/pbx
 git fetch origin
-git log HEAD..origin/main
+git log HEAD..origin/DEV
 
 # 2. Create backup
 sudo /opt/pbx/scripts/backup.sh
 
 # 3. Apply update during maintenance window
 sudo systemctl stop pbx
-git pull origin main
+git pull origin DEV
 
 # 4. Update dependencies (if pyproject.toml changed)
 make install-prod

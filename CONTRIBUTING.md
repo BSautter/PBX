@@ -103,7 +103,7 @@ Frontend tests use Jest with jsdom. Place test files under `admin/tests/`.
 
 ## Pull Request Process
 
-1. Fork the repository and create a feature branch off `main`.
+1. Fork the repository and create a feature branch off `DEV`.
 2. Make your changes and ensure the full check suite passes:
 
 ```bash

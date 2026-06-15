@@ -34,7 +34,7 @@ repos:
         args: ['--pytest-test-first']
         exclude: '^tests/conftest\.py$'
       - id: no-commit-to-branch
-        args: ['--branch', 'main']
+        args: ['--branch', 'DEV']
 
   # Ruff - replaces Black, isort, flake8, and pylint
   - repo: https://github.com/astral-sh/ruff-pre-commit

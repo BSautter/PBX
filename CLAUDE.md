@@ -249,7 +249,7 @@ System dependencies required in CI: `espeak`, `ffmpeg`, `libopus-dev`, `portaudi
 
 Configured in `.pre-commit-config.yaml`:
 
-1. **pre-commit-hooks** (v6.0.0) — trailing whitespace, EOF, YAML/JSON/TOML/XML checks, merge conflicts, debug statements, private key detection, LF line endings, test naming, no-commit-to-main
+1. **pre-commit-hooks** (v6.0.0) — trailing whitespace, EOF, YAML/JSON/TOML/XML checks, merge conflicts, debug statements, private key detection, LF line endings, test naming, no-commit-to-branch (DEV)
 2. **ruff** (v0.15.17) — lint with `--fix` + format
 3. **mypy** (v2.1.0) — type checking (excludes tests, skipped in CI)
 4. **bandit** (1.9.3) — security scanning (excludes tests)
@@ -303,7 +303,6 @@ Notable ignored rules:
 Per-file overrides:
 - `__init__.py`: `F401` ignored (re-exports)
 - `tests/*`: Relaxed rules (`F401`, `F811`, `ARG`, `PLR`, `PT`, `B011`, `PLC0415`, `N806`, `N803`)
-- `pbx/api/rest_api.py`: All rules ignored (deprecated file)
 - `pbx/features/*`, `pbx/core/*`, `pbx/sip/*`, `pbx/api/routes/*`, `pbx/api/app.py`, `pbx/api/server.py`, `pbx/api/utils.py`, `pbx/api/license_api.py`, `pbx/api/opensource_integration_api.py`, `pbx/rtp/handler.py`, `pbx/main.py`, `pbx/utils/*`, `pbx/integrations/*`: `PLC0415` ignored (lazy imports intentional)
 - `scripts/*`: `PLC0415`, `PLW1510`, `PT028` ignored
 

@@ -67,7 +67,7 @@ python3 scripts/verify_database.py
 ```bash
 # 1. Pull latest code
 cd /path/to/PBX
-git pull origin main
+git pull origin DEV
 
 # 2. Run zero-downtime deployment
 sudo ./scripts/zero_downtime_deploy.sh
