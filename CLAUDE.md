@@ -14,7 +14,7 @@ Warden VoIP is a comprehensive VoIP/PBX system built from scratch in Python 3.13
 | Build system | `hatchling` (Python), `vite` 8.0 (frontend) |
 | Test framework | `pytest` 9+ (Python), `jest` 30 (frontend) |
 | Linter/Formatter | `ruff` 0.15 (Python), `markdownlint-cli2` (Markdown) |
-| Type checker | `mypy` 1.19 (strict mode, Python), `tsc` (TypeScript) |
+| Type checker | `mypy` 2.1 (strict mode, Python), `tsc` (TypeScript) |
 | Line length | 100 characters |
 | Entry point | `pbx/main.py` → `pbx-server` console script |
 
@@ -250,8 +250,8 @@ System dependencies required in CI: `espeak`, `ffmpeg`, `libopus-dev`, `portaudi
 Configured in `.pre-commit-config.yaml`:
 
 1. **pre-commit-hooks** (v6.0.0) — trailing whitespace, EOF, YAML/JSON/TOML/XML checks, merge conflicts, debug statements, private key detection, LF line endings, test naming, no-commit-to-main
-2. **ruff** (v0.15.1) — lint with `--fix` + format
-3. **mypy** (v1.19.1) — type checking (excludes tests, skipped in CI)
+2. **ruff** (v0.15.17) — lint with `--fix` + format
+3. **mypy** (v2.1.0) — type checking (excludes tests, skipped in CI)
 4. **bandit** (1.9.3) — security scanning (excludes tests)
 5. **yamllint** (v1.38.0) — YAML linting (excludes config files)
 6. **markdownlint-cli2** (v0.21.0) — Markdown linting
