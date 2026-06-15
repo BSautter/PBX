@@ -245,15 +245,10 @@ class VideoCodecManager:
                 self.logger.debug(f"PyAV codec detection error: {e}")
 
         if not available:
-            # H.264 is the baseline/mandatory codec for video calling; advertise
-            # it as a fallback so encoding can still be attempted (and fail
-            # gracefully if truly unavailable) rather than reporting no codecs.
             self.logger.warning(
                 "No video codec libraries detected. "
-                "Install FFmpeg or PyAV for video encoding support. "
-                "Falling back to H.264."
+                "Install FFmpeg or PyAV for video encoding support."
             )
-            available.append("H.264")
 
         return available
 
