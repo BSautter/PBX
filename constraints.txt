@@ -108,7 +108,7 @@ sphinx==9.1.0
 sphinx-rtd-theme==3.1.0
 
 # Security Auditing
-pip-audit==2.10.0
+pip-audit==2.10.1
 
 # Development Utilities
 ipython==9.14.1
