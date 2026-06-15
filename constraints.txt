@@ -26,7 +26,8 @@
 # Core Dependencies
 # ============================================================================
 PyYAML==6.0.3
-cryptography==49.0.0
+# cryptography is capped <49 by fido2 2.2.0 (requires cryptography>35,<49)
+cryptography==48.0.1
 
 # SIP/RTP Support
 aiortc==1.14.0
@@ -68,7 +69,8 @@ soundfile==0.14.0
 
 # Video Codec Support
 imageio-ffmpeg==0.6.0
-av==17.1.0
+# av is capped <17 by aiortc 1.14.0 (requires av>=14.0.0,<17.0.0)
+av==16.1.0
 
 # Data Validation
 pydantic==2.13.4
