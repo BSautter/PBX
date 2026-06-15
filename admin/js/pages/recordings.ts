@@ -1067,43 +1067,18 @@ export async function clearCRMActivityLog(): Promise<void> {
 export async function loadComplianceData(): Promise<void> {
     try {
         const API_BASE = getApiBaseUrl();
-        const [soc2Res, gdprRes, pciRes] = await Promise.all([
-            fetchWithTimeout(`${API_BASE}/api/framework/compliance/soc2/controls`, {
-                headers: getAuthHeaders()
-            }),
-            fetchWithTimeout(`${API_BASE}/api/framework/compliance/gdpr/consents`, {
-                headers: getAuthHeaders()
-            }),
-            fetchWithTimeout(`${API_BASE}/api/framework/compliance/pci/audit-log`, {
-                headers: getAuthHeaders()
-            })
-        ]);
+        const soc2Res = await fetchWithTimeout(
+            `${API_BASE}/api/framework/compliance/soc2/controls`,
+            { headers: getAuthHeaders() }
+        );
 
-        const [soc2Data, gdprData, pciData] = await Promise.all([
-            soc2Res.ok ? soc2Res.json() : null,
-            gdprRes.ok ? gdprRes.json() : null,
-            pciRes.ok ? pciRes.json() : null
-        ]);
+        const soc2Data = soc2Res.ok ? await soc2Res.json() : null;
 
         // Update SOC 2 controls count
         const soc2Count = document.getElementById('compliance-soc2-count') as HTMLElement | null;
         if (soc2Count && soc2Data) {
             const controls = soc2Data.controls ?? [];
             soc2Count.textContent = String(controls.length);
-        }
-
-        // Update GDPR consents count
-        const gdprCount = document.getElementById('compliance-gdpr-count') as HTMLElement | null;
-        if (gdprCount && gdprData) {
-            const consents = gdprData.consents ?? [];
-            gdprCount.textContent = String(consents.length);
-        }
-
-        // Update PCI audit log count
-        const pciCount = document.getElementById('compliance-pci-count') as HTMLElement | null;
-        if (pciCount && pciData) {
-            const entries = pciData.entries ?? pciData.audit_log ?? [];
-            pciCount.textContent = String(entries.length);
         }
     } catch (error: unknown) {
         console.error('Error loading compliance data:', error);

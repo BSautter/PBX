@@ -847,47 +847,9 @@ def clear_integration_activity() -> tuple[Response, int]:
 # Compliance
 # =============================================================================
 
-# GDPR Handlers - COMMENTED OUT (not required for US-only operations)
-# These handlers are not active (not required for US-only operations).
-#
-# def get_gdpr_consents(extension): ...
-# def record_gdpr_consent(): ...
-# def withdraw_gdpr_consent(): ...
-# def create_gdpr_request(): ...
-# def get_gdpr_requests(): ...
-
-# PCI DSS Handlers - COMMENTED OUT (not required for US-only operations)
-# These handlers are not active.
-#
-# def get_pci_audit_log(): ...
-# def log_pci_event(): ...
-
-
-def _compliance_not_enabled(feature: str) -> tuple[Response, int]:
-    """Return a standard 'not enabled' response for disabled compliance engines.
-
-    The GDPR and PCI DSS engines in pbx.features.compliance_framework are
-    intentionally disabled (not required for US-based operations). These API
-    routes remain registered so the feature can be re-enabled for international
-    deployments without changing the API surface.
-    """
-    return send_json(
-        {"error": f"{feature} compliance is not enabled for this deployment"}, 501
-    ), 501
-
-
-@framework_bp.route("/compliance/gdpr/consents", methods=["GET"])
-@require_auth
-def get_gdpr_consents() -> tuple[Response, int]:
-    """Get GDPR consent records."""
-    return _compliance_not_enabled("GDPR")
-
-
-@framework_bp.route("/compliance/gdpr/requests", methods=["GET"])
-@require_auth
-def get_gdpr_requests() -> tuple[Response, int]:
-    """Get pending GDPR data requests."""
-    return _compliance_not_enabled("GDPR")
+# GDPR and PCI DSS compliance are intentionally not implemented: this
+# deployment targets US-based operations and does not process payment card
+# data.  Only SOC 2 Type II controls are exposed.
 
 
 @framework_bp.route("/compliance/soc2/controls", methods=["GET"])
@@ -909,34 +871,6 @@ def get_soc2_controls() -> tuple[Response, int]:
         return send_json({"error": "Database not available"}, 500), 500
 
 
-@framework_bp.route("/compliance/pci/audit-log", methods=["GET"])
-@require_auth
-def get_pci_audit_log() -> tuple[Response, int]:
-    """Get PCI DSS audit log."""
-    return _compliance_not_enabled("PCI DSS")
-
-
-@framework_bp.route("/compliance/gdpr/consent", methods=["POST"])
-@require_auth
-def record_gdpr_consent() -> tuple[Response, int]:
-    """Record GDPR consent."""
-    return _compliance_not_enabled("GDPR")
-
-
-@framework_bp.route("/compliance/gdpr/withdraw", methods=["POST"])
-@require_auth
-def withdraw_gdpr_consent() -> tuple[Response, int]:
-    """Withdraw GDPR consent."""
-    return _compliance_not_enabled("GDPR")
-
-
-@framework_bp.route("/compliance/gdpr/request", methods=["POST"])
-@require_auth
-def create_gdpr_request() -> tuple[Response, int]:
-    """Create GDPR data request."""
-    return _compliance_not_enabled("GDPR")
-
-
 @framework_bp.route("/compliance/soc2/control", methods=["POST"])
 @require_auth
 def register_soc2_control() -> tuple[Response, int]:
@@ -956,13 +890,6 @@ def register_soc2_control() -> tuple[Response, int]:
             return send_json({"error": str(e)}, 500), 500
     else:
         return send_json({"error": "Database not available"}, 500), 500
-
-
-@framework_bp.route("/compliance/pci/log", methods=["POST"])
-@require_auth
-def log_pci_event() -> tuple[Response, int]:
-    """Log PCI DSS event."""
-    return _compliance_not_enabled("PCI DSS")
 
 
 # =============================================================================

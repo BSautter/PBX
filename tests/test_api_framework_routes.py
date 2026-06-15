@@ -698,22 +698,6 @@ class TestIntegrationRoutes:
 class TestComplianceRoutes:
     """Test compliance endpoints."""
 
-    def test_get_gdpr_consents(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        # GDPR/PCI engines are intentionally disabled (not required for US-based
-        # operations); the endpoints report the feature as not enabled (501).
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.get("/api/framework/compliance/gdpr/consents?extension=1001")
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
-
-    def test_get_gdpr_requests(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.get("/api/framework/compliance/gdpr/requests")
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
-
     def test_get_soc2_controls(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.database.enabled = True
         with (
@@ -723,43 +707,6 @@ class TestComplianceRoutes:
             MockEngine.return_value.get_all_controls.return_value = [{"control": "CC1.1"}]
             response = api_client.get("/api/framework/compliance/soc2/controls")
             assert response.status_code == 200
-
-    def test_get_pci_audit_log(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.get("/api/framework/compliance/pci/audit-log")
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
-
-    def test_record_gdpr_consent(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/consent",
-                json={"extension": "1001", "consent_type": "recording"},
-            )
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
-
-    def test_withdraw_gdpr_consent(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/withdraw",
-                json={"extension": "1001", "consent_type": "recording"},
-            )
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
-
-    def test_create_gdpr_request(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.post(
-                "/api/framework/compliance/gdpr/request",
-                json={"extension": "1001", "type": "export"},
-            )
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
 
     def test_register_soc2_control(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
         mock_pbx_core.database.enabled = True
@@ -773,16 +720,6 @@ class TestComplianceRoutes:
                 json={"control_id": "CC1.1", "name": "Access Control"},
             )
             assert response.status_code == 200
-
-    def test_log_pci_event(self, api_client: FlaskClient, mock_pbx_core: MagicMock) -> None:
-        mock_pbx_core.database.enabled = True
-        with patch(AUTH_PATCH, return_value=AUTH_RETURN):
-            response = api_client.post(
-                "/api/framework/compliance/pci/log",
-                json={"event": "card_access", "user": "1001"},
-            )
-            assert response.status_code == 501
-            assert "not enabled" in _json(response)["error"]
 
 
 # =============================================================================
